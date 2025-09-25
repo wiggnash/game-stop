@@ -1,16 +1,29 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  registerUser,
+  validateRegistrationData,
+} from "../api/AuthenticationService";
+import { useAuth } from "../context/AuthContext";
 
-const Register = () => {
+const Register = ({ onLoginClick }) => {
+  const navigate = useNavigate();
+  const { login } = useAuth();
+
   const [formData, setFormData] = useState({
-    fullName: "",
+    username: "",
     email: "", // Optional
-    phoneNumber: "", // Mandatory
+    phone_number: "", // Mandatory
     password: "",
-    confirmPassword: "",
+    password_confirm: "",
+    first_name: "",
+    last_name: "",
     agreeToTerms: false,
   });
 
   const [errors, setErrors] = useState({});
+  const [isLoading, setIsLoading] = useState(false);
+  const [apiError, setApiError] = useState("");
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -26,39 +39,29 @@ const Register = () => {
         [name]: "",
       }));
     }
+
+    // Clear API error
+    if (apiError) {
+      setApiError("");
+    }
   };
 
   const validateForm = () => {
     const newErrors = {};
 
-    if (!formData.fullName.trim()) {
-      newErrors.fullName = "Full name is required";
-    }
+    // Use the service validation
+    const serviceValidation = validateRegistrationData({
+      username: formData.username,
+      phone_number: formData.phone_number,
+      email: formData.email,
+      password: formData.password,
+      password_confirm: formData.password_confirm,
+    });
 
-    // Email is optional, but if provided, should be valid
-    if (formData.email.trim() && !/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = "Email is invalid";
-    }
+    // Merge service validation errors
+    Object.assign(newErrors, serviceValidation.errors);
 
-    // Phone number is mandatory
-    if (!formData.phoneNumber.trim()) {
-      newErrors.phoneNumber = "Phone number is required";
-    } else if (!/^\+?[\d\s\-\(\)]+$/.test(formData.phoneNumber)) {
-      newErrors.phoneNumber = "Please enter a valid phone number";
-    }
-
-    if (!formData.password) {
-      newErrors.password = "Password is required";
-    } else if (formData.password.length < 8) {
-      newErrors.password = "Password must be at least 8 characters";
-    }
-
-    if (!formData.confirmPassword) {
-      newErrors.confirmPassword = "Please confirm your password";
-    } else if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = "Passwords do not match";
-    }
-
+    // Additional frontend-specific validations
     if (!formData.agreeToTerms) {
       newErrors.agreeToTerms = "You must agree to the terms and conditions";
     }
@@ -67,11 +70,91 @@ const Register = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (validateForm()) {
-      console.log("Registration submitted:", formData);
-      // Handle registration logic here
+
+    // Clear previous API error
+    setApiError("");
+
+    if (!validateForm()) {
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      // Prepare data for API (exclude frontend-only fields)
+      const apiData = {
+        username: formData.username,
+        password: formData.password,
+        password_confirm: formData.password_confirm,
+        phone_number: formData.phone_number,
+        email: formData.email || "", // Send empty string if not provided
+        first_name: formData.first_name || "",
+        last_name: formData.last_name || "",
+      };
+
+      const result = await registerUser(apiData);
+
+      if (result.success) {
+        // Use the auth context to handle login after registration
+        if (result.tokens) {
+          login(result.tokens.access, result.tokens.refresh);
+        }
+
+        console.log("Registration successful:", result);
+
+        // Navigate to dashboard after successful registration
+        navigate("/dashboard");
+
+        // Or you could redirect to login page with success message
+        // navigate("/login", { state: { message: "Registration successful! Please log in." } });
+      } else {
+        // Handle API errors
+        console.error("Registration failed:", result);
+
+        if (result.validationErrors && result.validationErrors !== null) {
+          // Handle field-specific errors from the API
+          const apiErrors = {};
+          Object.keys(result.validationErrors).forEach((field) => {
+            // Skip non_field_errors as they're handled as general API errors
+            if (field !== "non_field_errors") {
+              if (Array.isArray(result.validationErrors[field])) {
+                apiErrors[field] = result.validationErrors[field][0];
+              } else {
+                apiErrors[field] = result.validationErrors[field];
+              }
+            }
+          });
+
+          // Only set field errors if we have any, otherwise show general error
+          if (Object.keys(apiErrors).length > 0) {
+            setErrors(apiErrors);
+          } else {
+            setApiError(
+              result.message || "Registration failed. Please try again.",
+            );
+          }
+        } else {
+          // Handle general API error (including non_field_errors)
+          setApiError(
+            result.message || "Registration failed. Please try again.",
+          );
+        }
+      }
+    } catch (error) {
+      console.error("Unexpected error:", error);
+      setApiError("An unexpected error occurred. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleLoginClick = () => {
+    if (onLoginClick) {
+      onLoginClick();
+    } else {
+      navigate("/login");
     }
   };
 
@@ -98,59 +181,124 @@ const Register = () => {
 
         {/* Registration Card */}
         <div className="bg-slate-900/50 rounded-lg shadow-sm border border-slate-800 p-8">
-          <div className="space-y-6">
+          <form className="space-y-6" onSubmit={handleSubmit}>
+            {/* API Error Display */}
+            {apiError && (
+              <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3">
+                <p className="text-red-400 text-sm">{apiError}</p>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+              <div>
+                <label
+                  htmlFor="first_name"
+                  className="block text-sm font-medium text-slate-300 mb-2"
+                >
+                  First Name
+                </label>
+                <input
+                  id="first_name"
+                  name="first_name"
+                  type="text"
+                  autoComplete="given-name"
+                  className={`w-full px-3 py-2 bg-slate-800 border rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:border-transparent ${
+                    errors.first_name
+                      ? "border-red-500 focus:ring-red-500"
+                      : "border-slate-700 focus:ring-[#1173d4]"
+                  }`}
+                  placeholder="First name"
+                  value={formData.first_name}
+                  onChange={handleChange}
+                />
+                {errors.first_name && (
+                  <p className="mt-1 text-sm text-red-500">
+                    {errors.first_name}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label
+                  htmlFor="last_name"
+                  className="block text-sm font-medium text-slate-300 mb-2"
+                >
+                  Last Name
+                </label>
+                <input
+                  id="last_name"
+                  name="last_name"
+                  type="text"
+                  autoComplete="family-name"
+                  className={`w-full px-3 py-2 bg-slate-800 border rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:border-transparent ${
+                    errors.last_name
+                      ? "border-red-500 focus:ring-red-500"
+                      : "border-slate-700 focus:ring-[#1173d4]"
+                  }`}
+                  placeholder="Last name"
+                  value={formData.last_name}
+                  onChange={handleChange}
+                />
+                {errors.last_name && (
+                  <p className="mt-1 text-sm text-red-500">
+                    {errors.last_name}
+                  </p>
+                )}
+              </div>
+            </div>
+
             <div>
               <label
-                htmlFor="fullName"
+                htmlFor="username"
                 className="block text-sm font-medium text-slate-300 mb-2"
               >
-                Full Name
+                Username
               </label>
               <input
-                id="fullName"
-                name="fullName"
+                id="username"
+                name="username"
                 type="text"
-                autoComplete="name"
+                autoComplete="username"
                 required
                 className={`w-full px-3 py-2 bg-slate-800 border rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:border-transparent ${
-                  errors.fullName
+                  errors.username
                     ? "border-red-500 focus:ring-red-500"
                     : "border-slate-700 focus:ring-[#1173d4]"
                 }`}
-                placeholder="Enter your full name"
-                value={formData.fullName}
+                placeholder="Enter your username"
+                value={formData.username}
                 onChange={handleChange}
               />
-              {errors.fullName && (
-                <p className="mt-1 text-sm text-red-500">{errors.fullName}</p>
+              {errors.username && (
+                <p className="mt-1 text-sm text-red-500">{errors.username}</p>
               )}
             </div>
 
             <div>
               <label
-                htmlFor="phoneNumber"
+                htmlFor="phone_number"
                 className="block text-sm font-medium text-slate-300 mb-2"
               >
                 Phone Number <span className="text-red-400">*</span>
               </label>
               <input
-                id="phoneNumber"
-                name="phoneNumber"
+                id="phone_number"
+                name="phone_number"
                 type="tel"
                 autoComplete="tel"
                 required
                 className={`w-full px-3 py-2 bg-slate-800 border rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:border-transparent ${
-                  errors.phoneNumber
+                  errors.phone_number
                     ? "border-red-500 focus:ring-red-500"
                     : "border-slate-700 focus:ring-[#1173d4]"
                 }`}
                 placeholder="Enter your phone number"
-                value={formData.phoneNumber}
+                value={formData.phone_number}
                 onChange={handleChange}
               />
-              {errors.phoneNumber && (
+              {errors.phone_number && (
                 <p className="mt-1 text-sm text-red-500">
-                  {errors.phoneNumber}
+                  {errors.phone_number}
                 </p>
               )}
             </div>
@@ -211,29 +359,29 @@ const Register = () => {
 
             <div>
               <label
-                htmlFor="confirmPassword"
+                htmlFor="password_confirm"
                 className="block text-sm font-medium text-slate-300 mb-2"
               >
                 Confirm Password
               </label>
               <input
-                id="confirmPassword"
-                name="confirmPassword"
+                id="password_confirm"
+                name="password_confirm"
                 type="password"
                 autoComplete="new-password"
                 required
                 className={`w-full px-3 py-2 bg-slate-800 border rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:border-transparent ${
-                  errors.confirmPassword
+                  errors.password_confirm
                     ? "border-red-500 focus:ring-red-500"
                     : "border-slate-700 focus:ring-[#1173d4]"
                 }`}
                 placeholder="Confirm your password"
-                value={formData.confirmPassword}
+                value={formData.password_confirm}
                 onChange={handleChange}
               />
-              {errors.confirmPassword && (
+              {errors.password_confirm && (
                 <p className="mt-1 text-sm text-red-500">
-                  {errors.confirmPassword}
+                  {errors.password_confirm}
                 </p>
               )}
             </div>
@@ -281,11 +429,11 @@ const Register = () => {
 
             <div>
               <button
-                type="button"
-                onClick={handleSubmit}
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-[#1173d4] hover:bg-[#1173d4]/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-[#1173d4] transition-colors"
+                type="submit"
+                disabled={isLoading}
+                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-[#1173d4] hover:bg-[#1173d4]/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-[#1173d4] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Create Account
+                {isLoading ? "Creating Account..." : "Create Account"}
               </button>
             </div>
 
@@ -295,13 +443,13 @@ const Register = () => {
                 <button
                   type="button"
                   className="font-medium text-[#1173d4] hover:text-[#1173d4]/80 bg-transparent border-none cursor-pointer"
-                  onClick={() => console.log("Navigate to login")}
+                  onClick={handleLoginClick}
                 >
                   Sign in
                 </button>
               </p>
             </div>
-          </div>
+          </form>
         </div>
 
         {/* Footer */}

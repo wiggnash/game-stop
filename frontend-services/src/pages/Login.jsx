@@ -1,14 +1,21 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom"; // For Method 2 (Router)
+import { useNavigate } from "react-router-dom";
+import { loginUser, validateLoginData } from "../api/AuthenticationService";
+import { useAuth } from "../context/AuthContext";
 
 const Login = ({ onLoginSuccess, onRegisterClick }) => {
-  // For Method 1 (Simple)
-  const navigate = useNavigate(); // For Method 2 (Router)
+  const navigate = useNavigate();
+  const { login } = useAuth();
+
   const [formData, setFormData] = useState({
     identifier: "", // Can be email or phone
     password: "",
     rememberMe: false,
   });
+
+  const [errors, setErrors] = useState({});
+  const [isLoading, setIsLoading] = useState(false);
+  const [apiError, setApiError] = useState("");
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -16,30 +23,93 @@ const Login = ({ onLoginSuccess, onRegisterClick }) => {
       ...prev,
       [name]: type === "checkbox" ? checked : value,
     }));
+
+    // Clear errors when user starts typing
+    if (errors[name]) {
+      setErrors((prev) => ({
+        ...prev,
+        [name]: "",
+      }));
+    }
+
+    // Clear API error
+    if (apiError) {
+      setApiError("");
+    }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Determine if identifier is email or phone
-    const isEmail = /\S+@\S+\.\S+/.test(formData.identifier);
-    const isPhone = /^\+?[\d\s\-\(\)]+$/.test(formData.identifier);
+    // Clear previous API error
+    setApiError("");
 
-    console.log("Login submitted:", {
-      ...formData,
-      loginType: isEmail ? "email" : isPhone ? "phone" : "unknown",
-    });
+    // Validate form data
+    const validation = validateLoginData(formData);
+    if (!validation.isValid) {
+      setErrors(validation.errors);
+      return;
+    }
 
-    // Simulate login success
-    if (formData.identifier && formData.password) {
-      // For Method 1 (Simple state)
-      if (onLoginSuccess) {
-        onLoginSuccess();
+    setIsLoading(true);
+
+    try {
+      const result = await loginUser(formData);
+
+      if (result.success) {
+        // Use the auth context to handle login
+        if (result.tokens) {
+          login(result.tokens.access, result.tokens.refresh);
+
+          // Handle remember me
+          if (formData.rememberMe) {
+            localStorage.setItem("rememberMe", "true");
+          }
+        }
+
+        console.log("Login successful:", result);
+
+        // For Method 1 (Simple state)
+        if (onLoginSuccess) {
+          onLoginSuccess();
+        } else {
+          // For Method 2 (Router) - navigate to dashboard
+          navigate("/dashboard");
+        }
       } else {
-        // For Method 2 (Router)
-        localStorage.setItem("isAuthenticated", "true");
-        navigate("/dashboard");
+        // Handle API errors
+        console.error("Login failed:", result);
+
+        if (result.validationErrors && result.validationErrors !== null) {
+          // Handle field-specific errors from the API
+          const apiErrors = {};
+          Object.keys(result.validationErrors).forEach((field) => {
+            // Skip non_field_errors as they're handled as general API errors
+            if (field !== "non_field_errors") {
+              if (Array.isArray(result.validationErrors[field])) {
+                apiErrors[field] = result.validationErrors[field][0];
+              } else {
+                apiErrors[field] = result.validationErrors[field];
+              }
+            }
+          });
+
+          // Only set field errors if we have any, otherwise show general error
+          if (Object.keys(apiErrors).length > 0) {
+            setErrors(apiErrors);
+          } else {
+            setApiError(result.message || "Login failed. Please try again.");
+          }
+        } else {
+          // Handle general API error (including non_field_errors)
+          setApiError(result.message || "Login failed. Please try again.");
+        }
       }
+    } catch (error) {
+      console.error("Unexpected error:", error);
+      setApiError("An unexpected error occurred. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -76,7 +146,14 @@ const Login = ({ onLoginSuccess, onRegisterClick }) => {
 
         {/* Login Card */}
         <div className="bg-slate-900/50 rounded-lg shadow-sm border border-slate-800 p-8">
-          <div className="space-y-6">
+          <form className="space-y-6" onSubmit={handleSubmit}>
+            {/* API Error Display */}
+            {apiError && (
+              <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3">
+                <p className="text-red-400 text-sm">{apiError}</p>
+              </div>
+            )}
+
             <div>
               <label
                 htmlFor="identifier"
@@ -90,11 +167,18 @@ const Login = ({ onLoginSuccess, onRegisterClick }) => {
                 type="text"
                 autoComplete="username"
                 required
-                className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#1173d4] focus:border-transparent"
+                className={`w-full px-3 py-2 bg-slate-800 border rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:border-transparent ${
+                  errors.identifier
+                    ? "border-red-500 focus:ring-red-500"
+                    : "border-slate-700 focus:ring-[#1173d4]"
+                }`}
                 placeholder="Enter your email or phone number"
                 value={formData.identifier}
                 onChange={handleChange}
               />
+              {errors.identifier && (
+                <p className="mt-1 text-sm text-red-500">{errors.identifier}</p>
+              )}
             </div>
 
             <div>
@@ -110,11 +194,18 @@ const Login = ({ onLoginSuccess, onRegisterClick }) => {
                 type="password"
                 autoComplete="current-password"
                 required
-                className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#1173d4] focus:border-transparent"
+                className={`w-full px-3 py-2 bg-slate-800 border rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:border-transparent ${
+                  errors.password
+                    ? "border-red-500 focus:ring-red-500"
+                    : "border-slate-700 focus:ring-[#1173d4]"
+                }`}
                 placeholder="Enter your password"
                 value={formData.password}
                 onChange={handleChange}
               />
+              {errors.password && (
+                <p className="mt-1 text-sm text-red-500">{errors.password}</p>
+              )}
             </div>
 
             <div className="flex items-center justify-between">
@@ -148,11 +239,11 @@ const Login = ({ onLoginSuccess, onRegisterClick }) => {
 
             <div>
               <button
-                type="button"
-                onClick={handleSubmit}
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-[#1173d4] hover:bg-[#1173d4]/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-[#1173d4] transition-colors"
+                type="submit"
+                disabled={isLoading}
+                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-[#1173d4] hover:bg-[#1173d4]/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-[#1173d4] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Sign in
+                {isLoading ? "Signing in..." : "Sign in"}
               </button>
             </div>
 
@@ -168,7 +259,7 @@ const Login = ({ onLoginSuccess, onRegisterClick }) => {
                 </button>
               </p>
             </div>
-          </div>
+          </form>
         </div>
 
         {/* Footer */}

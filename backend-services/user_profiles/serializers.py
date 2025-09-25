@@ -43,7 +43,7 @@ class LoginSerializer(serializers.Serializer):
             if user and user.is_active:
                 data['user'] = user
             else:
-                raise serializers.ValidationError("User is not active")
+                raise serializers.ValidationError("Please check the credentials")
 
         else:
             raise serializers.ValidationError("Invalid input")
