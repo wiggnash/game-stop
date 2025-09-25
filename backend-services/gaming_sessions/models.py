@@ -1,6 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
-from gaming_services.models import GamingService
+from gaming_services.models import GamingService, Station
 from simple_history.models import HistoricalRecords
 
 class GamingSession(models.Model):
@@ -14,7 +14,7 @@ class GamingSession(models.Model):
     # Relations
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='gaming_sessions_created')
     updated_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='gaming_sessions_updated')
-    service = models.ForeignKey(GamingService, on_delete=models.CASCADE, related_name='gaming_sessions')
+    station = models.ForeignKey(Station, on_delete=models.CASCADE, null=True, related_name='gaming_sessions_station')
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='gaming_sessions')
 
     check_in_time = models.DateTimeField()
@@ -37,4 +37,4 @@ class GamingSession(models.Model):
         ordering = ['-id']
 
     def __str__(self):
-        return f"Session {self.id} - {self.user.username} ({self.service.name})"
+        return f"Session {self.id} - {self.user.username} ({self.station.name})"

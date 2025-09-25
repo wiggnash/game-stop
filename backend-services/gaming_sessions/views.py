@@ -1,8 +1,8 @@
-from rest_framework import generics
+from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from .models import GamingSession
-from .serializers import GamingSessionSerializer
+from .serializers import GamingSessionSerializer, GamingSessionActiveDashboardSerializer
 
 class GamingSessionListCreateView(generics.ListCreateAPIView):
     queryset = GamingSession.objects.all()
@@ -42,3 +42,27 @@ class GamingSessionRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIVi
         instance.archive = True
         instance.updated_by = self.request.user
         instance.save()
+
+class GamingSessionListActiveView(generics.ListAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = GamingSessionActiveDashboardSerializer
+
+    def get_queryset(self):
+        return GamingSession.objects.filter(session_status='ACTIVE', archive=False)
+
+    def get(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+class GamingSessionListPastView(generics.ListAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = GamingSessionActiveDashboardSerializer
+
+    def get_queryset(self):
+        return GamingSession.objects.filter(session_status='COMPLETED', archive=False)
+
+    def get(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)

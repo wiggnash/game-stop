@@ -20,7 +20,6 @@ const Header = () => {
 
   const navigationItems = [
     { path: "/dashboard", label: "Dashboard", icon: "dashboard" },
-    { path: "/new-session", label: "Sessions", icon: "timer" },
     { path: "/snacks", label: "Snacks", icon: "fastfood" },
     { path: "/users", label: "Customers", icon: "group" },
     { path: "/financial", label: "Reports", icon: "assessment" },

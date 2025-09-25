@@ -1,7 +1,9 @@
 from django.urls import path
-from .views import GamingSessionListCreateView, GamingSessionRetrieveUpdateDestroyView
+from .views import GamingSessionListCreateView, GamingSessionRetrieveUpdateDestroyView, GamingSessionListActiveView, GamingSessionListPastView
 
 urlpatterns = [
     path('', GamingSessionListCreateView.as_view(), name='GamingSession-list-create'),
     path('<int:pk>/', GamingSessionRetrieveUpdateDestroyView.as_view(), name='GamingSession-retrieve-update-destroy'),
+    path('active/', GamingSessionListActiveView.as_view(), name='GamingSession-list-active'),
+    path('past/', GamingSessionListPastView.as_view(), name='GamingSession-list-active'),
 ]
