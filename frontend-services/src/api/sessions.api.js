@@ -48,3 +48,8 @@ export const addItemToSession = async (sessionId, itemData) => {
   );
   return response.data;
 };
+
+export const getSessionDetails = async (sessionId) => {
+  const response = await apiClient.get(`/api/gaming-sessions/${sessionId}/`);
+  return response.data;
+};

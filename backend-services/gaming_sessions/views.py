@@ -2,7 +2,7 @@ from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from .models import GamingSession
-from .serializers import GamingSessionSerializer, GamingSessionActiveDashboardSerializer
+from .serializers import GamingSessionSerializer, GamingSessionActiveDashboardSerializer, GamingSessionDetailSerializer
 
 class GamingSessionListCreateView(generics.ListCreateAPIView):
     queryset = GamingSession.objects.all()
@@ -30,6 +30,11 @@ class GamingSessionRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIVi
     queryset = GamingSession.objects.all()
     permission_classes = [IsAuthenticated]
     serializer_class = GamingSessionSerializer
+
+    def get_serializer_class(self):
+        if self.request.method == 'GET':
+            return GamingSessionDetailSerializer
+        return GamingSessionSerializer
 
     def perform_update(self, serializer):
         serializer.save(
