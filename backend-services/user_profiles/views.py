@@ -5,7 +5,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from .models import UserProfile
 from django.contrib.auth.models import User
 
-from .serializers import UserProfileSerializer, LoginSerializer, RegisterSerializer
+from .serializers import UserProfileSerializer, LoginSerializer, RegisterSerializer, UserMeSerializer
 
 class UserProfileListCreateView(generics.ListCreateAPIView):
     queryset = UserProfile.objects.all()
@@ -128,3 +128,11 @@ class RegisterView(generics.CreateAPIView):
         )
 
         return user
+
+class UserProfileMeView(generics.RetrieveAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = UserMeSerializer
+
+    def get_object(self):
+        # Return the UserProfile for the authenticated user
+        return self.request.user.profile

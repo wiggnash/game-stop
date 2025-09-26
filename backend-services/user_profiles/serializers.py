@@ -8,6 +8,15 @@ class UserProfileSerializer(serializers.ModelSerializer):
         model = UserProfile
         fields = '__all__'
 
+class UserMeSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source='user.username', read_only=True)
+    email = serializers.EmailField(source='user.email', read_only=True)
+    phone_number = serializers.CharField(read_only=True)
+
+    class Meta:
+        model = UserProfile
+        fields = ['username', 'email', 'phone_number']
+
 class LoginSerializer(serializers.Serializer):
     identifier = serializers.CharField()
     loginType = serializers.ChoiceField(choices=[('email', 'Email'), ('phone', 'Phone')])
