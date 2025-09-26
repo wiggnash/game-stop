@@ -332,12 +332,6 @@ const SessionDashboard = () => {
                   Failed to load sessions
                 </p>
                 <p className="text-red-400 mb-4">{error}</p>
-                <button
-                  onClick={handleRefresh}
-                  className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors"
-                >
-                  Try Again
-                </button>
               </div>
             </div>
           </div>

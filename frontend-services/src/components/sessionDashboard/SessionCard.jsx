@@ -1,6 +1,6 @@
 import React from "react";
 import { Pause, Square, Clock, Coffee, Play } from "lucide-react";
-
+import { useNavigate } from "react-router-dom";
 const SessionCard = ({
   session,
   onPause,
@@ -9,6 +9,7 @@ const SessionCard = ({
   onAddTime,
   onAddItem,
 }) => {
+  const navigate = useNavigate();
   const getStatusColor = () => {
     switch (session.color) {
       case "green":
@@ -85,9 +86,18 @@ const SessionCard = ({
     onAddItem?.(session);
   };
 
+  const handleCardClick = (e) => {
+    // Prevent navigation if clicking on action buttons
+    if (e.target.closest("button")) {
+      return;
+    }
+    navigate(`/session/${session.id}`);
+  };
+
   return (
     <div
-      className={`group relative flex flex-col overflow-hidden rounded-xl bg-white/5 border ${getStatusColor()} border-opacity-50 shadow-md ${
+      onClick={handleCardClick}
+      className={`group relative flex flex-col overflow-hidden rounded-xl bg-white/5 border ${getStatusColor()} border-opacity-50 shadow-md cursor-pointer hover:border-opacity-100 transition-all ${
         session.status === "urgent" ? "animate-pulse" : ""
       }`}
     >
