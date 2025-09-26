@@ -1,14 +1,13 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { loginUser, validateLoginData } from "../api/AuthenticationService";
 import { useAuth } from "../context/AuthContext";
 
-const Login = ({ onLoginSuccess, onRegisterClick }) => {
+const Login = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
 
   const [formData, setFormData] = useState({
-    identifier: "", // Can be email or phone
+    identifier: "",
     password: "",
     rememberMe: false,
   });
@@ -26,83 +25,71 @@ const Login = ({ onLoginSuccess, onRegisterClick }) => {
 
     // Clear errors when user starts typing
     if (errors[name]) {
-      setErrors((prev) => ({
-        ...prev,
-        [name]: "",
-      }));
+      setErrors((prev) => ({ ...prev, [name]: "" }));
     }
-
-    // Clear API error
     if (apiError) {
       setApiError("");
     }
   };
 
+  const validateForm = () => {
+    const newErrors = {};
+
+    if (!formData.identifier?.trim()) {
+      newErrors.identifier = "Email or phone number is required";
+    }
+
+    if (!formData.password) {
+      newErrors.password = "Password is required";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    // Clear previous API error
     setApiError("");
 
-    // Validate form data
-    const validation = validateLoginData(formData);
-    if (!validation.isValid) {
-      setErrors(validation.errors);
+    if (!validateForm()) {
       return;
     }
 
     setIsLoading(true);
 
     try {
-      const result = await loginUser(formData);
+      // Call AuthContext login method
+      const result = await login({
+        identifier: formData.identifier,
+        password: formData.password,
+        rememberMe: formData.rememberMe,
+      });
 
       if (result.success) {
-        // Use the auth context to handle login
-        if (result.tokens) {
-          login(result.tokens.access, result.tokens.refresh);
-
-          // Handle remember me
-          if (formData.rememberMe) {
-            localStorage.setItem("rememberMe", "true");
-          }
-        }
-
-        console.log("Login successful:", result);
-
-        // For Method 1 (Simple state)
-        if (onLoginSuccess) {
-          onLoginSuccess();
-        } else {
-          // For Method 2 (Router) - navigate to dashboard
-          navigate("/dashboard");
-        }
+        // Success! Navigate to dashboard
+        navigate("/dashboard");
       } else {
-        // Handle API errors
-        console.error("Login failed:", result);
-
-        if (result.validationErrors && result.validationErrors !== null) {
-          // Handle field-specific errors from the API
-          const apiErrors = {};
-          Object.keys(result.validationErrors).forEach((field) => {
-            // Skip non_field_errors as they're handled as general API errors
+        // Handle errors from API
+        if (result.error?.non_field_errors) {
+          setApiError(result.error.non_field_errors[0]);
+        } else if (result.error) {
+          // Handle field-specific errors
+          const fieldErrors = {};
+          Object.keys(result.error).forEach((field) => {
             if (field !== "non_field_errors") {
-              if (Array.isArray(result.validationErrors[field])) {
-                apiErrors[field] = result.validationErrors[field][0];
-              } else {
-                apiErrors[field] = result.validationErrors[field];
-              }
+              fieldErrors[field] = Array.isArray(result.error[field])
+                ? result.error[field][0]
+                : result.error[field];
             }
           });
 
-          // Only set field errors if we have any, otherwise show general error
-          if (Object.keys(apiErrors).length > 0) {
-            setErrors(apiErrors);
+          if (Object.keys(fieldErrors).length > 0) {
+            setErrors(fieldErrors);
           } else {
-            setApiError(result.message || "Login failed. Please try again.");
+            setApiError("Login failed. Please try again.");
           }
         } else {
-          // Handle general API error (including non_field_errors)
-          setApiError(result.message || "Login failed. Please try again.");
+          setApiError("Login failed. Please try again.");
         }
       }
     } catch (error) {
@@ -110,16 +97,6 @@ const Login = ({ onLoginSuccess, onRegisterClick }) => {
       setApiError("An unexpected error occurred. Please try again.");
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleRegisterClick = () => {
-    // For Method 1 (Simple state)
-    if (onRegisterClick) {
-      onRegisterClick();
-    } else {
-      // For Method 2 (Router)
-      navigate("/register");
     }
   };
 
@@ -230,7 +207,6 @@ const Login = ({ onLoginSuccess, onRegisterClick }) => {
                 <button
                   type="button"
                   className="font-medium text-[#1173d4] hover:text-[#1173d4]/80 bg-transparent border-none cursor-pointer"
-                  onClick={() => console.log("Forgot password clicked")}
                 >
                   Forgot your password?
                 </button>
@@ -253,7 +229,7 @@ const Login = ({ onLoginSuccess, onRegisterClick }) => {
                 <button
                   type="button"
                   className="font-medium text-[#1173d4] hover:text-[#1173d4]/80 bg-transparent border-none cursor-pointer"
-                  onClick={handleRegisterClick}
+                  onClick={() => navigate("/register")}
                 >
                   Sign up
                 </button>

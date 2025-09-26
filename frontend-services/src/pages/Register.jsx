@@ -1,19 +1,15 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  registerUser,
-  validateRegistrationData,
-} from "../api/AuthenticationService";
 import { useAuth } from "../context/AuthContext";
 
-const Register = ({ onLoginClick }) => {
+const Register = () => {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { register } = useAuth();
 
   const [formData, setFormData] = useState({
     username: "",
-    email: "", // Optional
-    phone_number: "", // Mandatory
+    email: "",
+    phone_number: "",
     password: "",
     password_confirm: "",
     first_name: "",
@@ -32,15 +28,9 @@ const Register = ({ onLoginClick }) => {
       [name]: type === "checkbox" ? checked : value,
     }));
 
-    // Clear error when user starts typing
     if (errors[name]) {
-      setErrors((prev) => ({
-        ...prev,
-        [name]: "",
-      }));
+      setErrors((prev) => ({ ...prev, [name]: "" }));
     }
-
-    // Clear API error
     if (apiError) {
       setApiError("");
     }
@@ -49,19 +39,32 @@ const Register = ({ onLoginClick }) => {
   const validateForm = () => {
     const newErrors = {};
 
-    // Use the service validation
-    const serviceValidation = validateRegistrationData({
-      username: formData.username,
-      phone_number: formData.phone_number,
-      email: formData.email,
-      password: formData.password,
-      password_confirm: formData.password_confirm,
-    });
+    if (!formData.username?.trim()) {
+      newErrors.username = "Username is required";
+    }
 
-    // Merge service validation errors
-    Object.assign(newErrors, serviceValidation.errors);
+    if (!formData.phone_number?.trim()) {
+      newErrors.phone_number = "Phone number is required";
+    } else if (!/^\+?[\d\s\-\(\)]+$/.test(formData.phone_number)) {
+      newErrors.phone_number = "Please enter a valid phone number";
+    }
 
-    // Additional frontend-specific validations
+    if (formData.email?.trim() && !/\S+@\S+\.\S+/.test(formData.email)) {
+      newErrors.email = "Please enter a valid email address";
+    }
+
+    if (!formData.password) {
+      newErrors.password = "Password is required";
+    } else if (formData.password.length < 8) {
+      newErrors.password = "Password must be at least 8 characters";
+    }
+
+    if (!formData.password_confirm) {
+      newErrors.password_confirm = "Please confirm your password";
+    } else if (formData.password !== formData.password_confirm) {
+      newErrors.password_confirm = "Passwords do not match";
+    }
+
     if (!formData.agreeToTerms) {
       newErrors.agreeToTerms = "You must agree to the terms and conditions";
     }
@@ -72,8 +75,6 @@ const Register = ({ onLoginClick }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    // Clear previous API error
     setApiError("");
 
     if (!validateForm()) {
@@ -84,62 +85,44 @@ const Register = ({ onLoginClick }) => {
 
     try {
       // Prepare data for API (exclude frontend-only fields)
-      const apiData = {
+      const registrationData = {
         username: formData.username,
         password: formData.password,
         password_confirm: formData.password_confirm,
         phone_number: formData.phone_number,
-        email: formData.email || "", // Send empty string if not provided
+        email: formData.email || "",
         first_name: formData.first_name || "",
         last_name: formData.last_name || "",
       };
 
-      const result = await registerUser(apiData);
+      // Call AuthContext register method
+      const result = await register(registrationData);
 
       if (result.success) {
-        // Use the auth context to handle login after registration
-        if (result.tokens) {
-          login(result.tokens.access, result.tokens.refresh);
-        }
-
-        console.log("Registration successful:", result);
-
-        // Navigate to dashboard after successful registration
+        // Success! Navigate to dashboard
         navigate("/dashboard");
-
-        // Or you could redirect to login page with success message
-        // navigate("/login", { state: { message: "Registration successful! Please log in." } });
       } else {
-        // Handle API errors
-        console.error("Registration failed:", result);
-
-        if (result.validationErrors && result.validationErrors !== null) {
-          // Handle field-specific errors from the API
-          const apiErrors = {};
-          Object.keys(result.validationErrors).forEach((field) => {
-            // Skip non_field_errors as they're handled as general API errors
+        // Handle errors from API
+        if (result.error?.non_field_errors) {
+          setApiError(result.error.non_field_errors[0]);
+        } else if (result.error) {
+          // Handle field-specific errors
+          const fieldErrors = {};
+          Object.keys(result.error).forEach((field) => {
             if (field !== "non_field_errors") {
-              if (Array.isArray(result.validationErrors[field])) {
-                apiErrors[field] = result.validationErrors[field][0];
-              } else {
-                apiErrors[field] = result.validationErrors[field];
-              }
+              fieldErrors[field] = Array.isArray(result.error[field])
+                ? result.error[field][0]
+                : result.error[field];
             }
           });
 
-          // Only set field errors if we have any, otherwise show general error
-          if (Object.keys(apiErrors).length > 0) {
-            setErrors(apiErrors);
+          if (Object.keys(fieldErrors).length > 0) {
+            setErrors(fieldErrors);
           } else {
-            setApiError(
-              result.message || "Registration failed. Please try again.",
-            );
+            setApiError("Registration failed. Please try again.");
           }
         } else {
-          // Handle general API error (including non_field_errors)
-          setApiError(
-            result.message || "Registration failed. Please try again.",
-          );
+          setApiError("Registration failed. Please try again.");
         }
       }
     } catch (error) {
@@ -147,14 +130,6 @@ const Register = ({ onLoginClick }) => {
       setApiError("An unexpected error occurred. Please try again.");
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleLoginClick = () => {
-    if (onLoginClick) {
-      onLoginClick();
-    } else {
-      navigate("/login");
     }
   };
 
@@ -172,7 +147,7 @@ const Register = ({ onLoginClick }) => {
               <path
                 d="M42.4379 44C42.4379 44 36.0744 33.9038 41.1692 24C46.8624 12.9336 42.2078 4 42.2078 4L7.01134 4C7.01134 4 11.6577 12.932 5.96912 23.9969C0.876273 33.9029 7.27094 44 7.27094 44L42.4379 44Z"
                 fill="currentColor"
-              ></path>
+              />
             </svg>
           </div>
           <h2 className="text-3xl font-bold text-white">GameHub</h2>
@@ -406,7 +381,6 @@ const Register = ({ onLoginClick }) => {
                   <button
                     type="button"
                     className="text-[#1173d4] hover:text-[#1173d4]/80 bg-transparent border-none cursor-pointer"
-                    onClick={() => console.log("Terms clicked")}
                   >
                     Terms and Conditions
                   </button>{" "}
@@ -414,7 +388,6 @@ const Register = ({ onLoginClick }) => {
                   <button
                     type="button"
                     className="text-[#1173d4] hover:text-[#1173d4]/80 bg-transparent border-none cursor-pointer"
-                    onClick={() => console.log("Privacy policy clicked")}
                   >
                     Privacy Policy
                   </button>
@@ -443,7 +416,7 @@ const Register = ({ onLoginClick }) => {
                 <button
                   type="button"
                   className="font-medium text-[#1173d4] hover:text-[#1173d4]/80 bg-transparent border-none cursor-pointer"
-                  onClick={handleLoginClick}
+                  onClick={() => navigate("/login")}
                 >
                   Sign in
                 </button>

@@ -30,14 +30,7 @@ export const PublicRoute = ({ children }) => {
 
   // Show loading while checking authentication
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-[#101922] flex items-center justify-center">
-        <div className="flex flex-col items-center space-y-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1173d4]"></div>
-          <p className="text-white text-sm">Loading...</p>
-        </div>
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
   return !isAuthenticated ? children : <Navigate to="/dashboard" replace />;

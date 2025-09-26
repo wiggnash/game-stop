@@ -1,17 +1,28 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 
 const Header = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { logout, user } = useAuth();
+  const { isAuthenticated, user, logout, fetchUserData } = useAuth();
   const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const [isLoadingUser, setIsLoadingUser] = useState(false);
 
-  // Check if current path matches the navigation item
-  const isActive = (path) => {
-    return location.pathname === path;
-  };
+  // Fetch user data when authenticated but user data is missing
+  useEffect(() => {
+    const loadUserData = async () => {
+      if (isAuthenticated && !user) {
+        setIsLoadingUser(true);
+        await fetchUserData();
+        setIsLoadingUser(false);
+      }
+    };
+
+    loadUserData();
+  }, [isAuthenticated, user, fetchUserData]);
+
+  const isActive = (path) => location.pathname === path;
 
   const handleLogout = () => {
     logout();
@@ -44,7 +55,14 @@ const Header = () => {
                   />
                 </svg>
               </div>
-              <h1 className="text-xl font-bold text-white">GameHub</h1>
+              <div className="flex flex-col">
+                <h1 className="text-xl font-bold text-white leading-tight tracking-tight">
+                  GameStop
+                </h1>
+                <p className="text-sm text-[#1173d4] font-semibold tracking-widest uppercase mt-0.5">
+                  The Vanguard
+                </p>
+              </div>
             </Link>
           </div>
 
@@ -75,7 +93,6 @@ const Header = () => {
               <span className="material-symbols-outlined text-xl">
                 notifications
               </span>
-              {/* Notification badge */}
               <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500"></span>
             </button>
 
@@ -86,10 +103,18 @@ const Header = () => {
                 className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-800/50 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#101922] focus:ring-[#1173d4]"
               >
                 <div className="size-8 rounded-full bg-gradient-to-br from-[#1173d4] to-blue-600 flex items-center justify-center text-white text-sm font-semibold">
-                  {user?.username ? user.username.charAt(0).toUpperCase() : "U"}
+                  {isLoadingUser ? (
+                    <span className="material-symbols-outlined text-base animate-spin">
+                      refresh
+                    </span>
+                  ) : user?.username ? (
+                    user.username.charAt(0).toUpperCase()
+                  ) : (
+                    "U"
+                  )}
                 </div>
                 <span className="hidden md:block text-sm font-medium text-slate-300">
-                  {user?.username || "User"}
+                  {isLoadingUser ? "Loading..." : user?.username || "User"}
                 </span>
                 <span className="material-symbols-outlined text-slate-400 text-base">
                   {showUserDropdown
@@ -110,7 +135,7 @@ const Header = () => {
                     </p>
                   </div>
 
-                  <button className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white transition-colors flex items-center gap-2">
+                  {/* <button className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white transition-colors flex items-center gap-2">
                     <span className="material-symbols-outlined text-base">
                       person
                     </span>
@@ -122,7 +147,7 @@ const Header = () => {
                       settings
                     </span>
                     Settings
-                  </button>
+                  </button>*/}
 
                   <div className="border-t border-slate-700 mt-1 pt-1">
                     <button

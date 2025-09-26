@@ -3,21 +3,17 @@ import { useNavigate } from "react-router-dom";
 import {
   Search,
   Plus,
-  Power,
-  RotateCcw,
-  Users,
-  Settings,
-  Bell,
   RefreshCw,
   Calendar,
   Clock,
   DollarSign,
   User,
   Monitor,
+  Settings,
+  Bell,
 } from "lucide-react";
 import SessionCard from "../components/sessionDashboard/SessionCard";
-import { apiClient } from "../api/AuthenticationService";
-import { tokenUtils } from "../api/TokenAuthenticationService";
+import * as sessionsApi from "../api/sessions.api";
 
 const SessionDashboard = () => {
   const navigate = useNavigate();
@@ -29,7 +25,7 @@ const SessionDashboard = () => {
   const [error, setError] = useState(null);
   const [pastError, setPastError] = useState(null);
 
-  // Function to calculate remaining time
+  // Utility functions for session data
   const calculateRemainingTime = (checkInTime, checkOutTime) => {
     const now = new Date();
     const checkOut = new Date(checkOutTime);
@@ -46,7 +42,6 @@ const SessionDashboard = () => {
     return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
   };
 
-  // Function to calculate session duration
   const calculateSessionDuration = (checkInTime, checkOutTime) => {
     const checkIn = new Date(checkInTime);
     const checkOut = new Date(checkOutTime);
@@ -61,7 +56,6 @@ const SessionDashboard = () => {
     return `${minutes}m`;
   };
 
-  // Function to format date
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString("en-US", {
@@ -73,19 +67,17 @@ const SessionDashboard = () => {
     });
   };
 
-  // Function to determine session color based on remaining time
   const getSessionColor = (checkInTime, checkOutTime) => {
     const now = new Date();
     const checkOut = new Date(checkOutTime);
     const timeDiff = checkOut.getTime() - now.getTime();
     const minutesLeft = timeDiff / (1000 * 60);
 
-    if (minutesLeft <= 15) return "red"; // Urgent - 15 minutes or less
-    if (minutesLeft <= 30) return "orange"; // Warning - 30 minutes or less
-    return "green"; // Normal - more than 30 minutes
+    if (minutesLeft <= 15) return "red";
+    if (minutesLeft <= 30) return "orange";
+    return "green";
   };
 
-  // Transform API data to component format
   const transformSessionData = (apiSession) => {
     const remainingTime = calculateRemainingTime(
       apiSession.check_in_time,
@@ -110,103 +102,34 @@ const SessionDashboard = () => {
     };
   };
 
-  // Create authenticated API client with token
-  const createAuthenticatedRequest = () => {
-    const token = tokenUtils.getAccessToken();
-    if (token) {
-      // Set authorization header for this request
-      apiClient.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-    }
-    return apiClient;
-  };
-
-  // Fetch active sessions from API using axios with authentication
+  // Fetch active sessions
   const fetchActiveSessions = async () => {
     try {
       setLoading(true);
-      const authenticatedClient = createAuthenticatedRequest();
-      const response = await authenticatedClient.get(
-        "/api/gaming-sessions/active/",
-      );
-
-      const transformedSessions = response.data.map(transformSessionData);
+      const data = await sessionsApi.getActiveSessions();
+      const transformedSessions = data.map(transformSessionData);
       setSessions(transformedSessions);
       setError(null);
     } catch (err) {
-      if (err.response?.status === 401) {
-        // Token expired or invalid, try to refresh
-        const refreshResult = await tokenUtils.refreshAccessToken();
-        if (refreshResult.success) {
-          // Retry the request with new token
-          try {
-            const retryClient = createAuthenticatedRequest();
-            const response = await retryClient.get(
-              "/api/gaming-sessions/active/",
-            );
-            const transformedSessions = response.data.map(transformSessionData);
-            setSessions(transformedSessions);
-            setError(null);
-            return; // Success on retry
-          } catch (retryErr) {
-            setError("Authentication failed. Please log in again.");
-            console.error("Retry failed:", retryErr);
-            return;
-          }
-        } else {
-          setError("Session expired. Please log in again.");
-          console.error("Token refresh failed:", refreshResult.error);
-          return;
-        }
-      }
-
       const errorMessage =
         err.response?.data?.message ||
         err.message ||
         "Failed to fetch sessions";
       setError(errorMessage);
-      console.error("Error fetching sessions:", err);
+      console.error("Error fetching active sessions:", err);
     } finally {
       setLoading(false);
     }
   };
 
-  // Fetch past sessions from API
+  // Fetch past sessions
   const fetchPastSessions = async () => {
     try {
       setPastLoading(true);
-      const authenticatedClient = createAuthenticatedRequest();
-      const response = await authenticatedClient.get(
-        "/api/gaming-sessions/past/",
-      );
-
-      setPastSessions(response.data);
+      const data = await sessionsApi.getPastSessions();
+      setPastSessions(data);
       setPastError(null);
     } catch (err) {
-      if (err.response?.status === 401) {
-        // Token expired or invalid, try to refresh
-        const refreshResult = await tokenUtils.refreshAccessToken();
-        if (refreshResult.success) {
-          // Retry the request with new token
-          try {
-            const retryClient = createAuthenticatedRequest();
-            const response = await retryClient.get(
-              "/api/gaming-sessions/past/",
-            );
-            setPastSessions(response.data);
-            setPastError(null);
-            return; // Success on retry
-          } catch (retryErr) {
-            setPastError("Authentication failed. Please log in again.");
-            console.error("Retry failed:", retryErr);
-            return;
-          }
-        } else {
-          setPastError("Session expired. Please log in again.");
-          console.error("Token refresh failed:", refreshResult.error);
-          return;
-        }
-      }
-
       const errorMessage =
         err.response?.data?.message ||
         err.message ||
@@ -250,7 +173,11 @@ const SessionDashboard = () => {
       session.platform.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
-  // Session action handlers with axios and optimistic updates
+  const handleNewSession = () => {
+    navigate("/new-session");
+  };
+
+  // Session action handlers with API calls
   const handlePause = async (session) => {
     console.log("Pausing session:", session.id);
 
@@ -262,16 +189,11 @@ const SessionDashboard = () => {
     );
 
     try {
-      const authenticatedClient = createAuthenticatedRequest();
-      await authenticatedClient.put(
-        `/api/gaming-sessions/${session.id}/pause/`,
-      );
+      await sessionsApi.pauseSession(session.id);
     } catch (error) {
       // Revert optimistic update on error
       fetchActiveSessions();
-      const errorMessage =
-        error.response?.data?.message || "Failed to pause session";
-      console.error("Error pausing session:", errorMessage);
+      console.error("Error pausing session:", error);
       // TODO: Show user-friendly error notification
     }
   };
@@ -293,15 +215,10 @@ const SessionDashboard = () => {
     );
 
     try {
-      const authenticatedClient = createAuthenticatedRequest();
-      await authenticatedClient.put(
-        `/api/gaming-sessions/${session.id}/resume/`,
-      );
+      await sessionsApi.resumeSession(session.id);
     } catch (error) {
       fetchActiveSessions();
-      const errorMessage =
-        error.response?.data?.message || "Failed to resume session";
-      console.error("Error resuming session:", errorMessage);
+      console.error("Error resuming session:", error);
       // TODO: Show user-friendly error notification
     }
   };
@@ -315,16 +232,12 @@ const SessionDashboard = () => {
     );
 
     try {
-      const authenticatedClient = createAuthenticatedRequest();
-      await authenticatedClient.put(`/api/gaming-sessions/${session.id}/end/`);
-
+      await sessionsApi.endSession(session.id);
       // Refresh past sessions to show the newly completed session
       fetchPastSessions();
     } catch (error) {
       fetchActiveSessions();
-      const errorMessage =
-        error.response?.data?.message || "Failed to end session";
-      console.error("Error ending session:", errorMessage);
+      console.error("Error ending session:", error);
       // TODO: Show user-friendly error notification
     }
   };
@@ -336,17 +249,14 @@ const SessionDashboard = () => {
       // TODO: Implement add time modal/dialog to get time amount
       const timeToAdd = 30; // Example: 30 minutes, this should come from user input
 
-      const authenticatedClient = createAuthenticatedRequest();
-      const response = await authenticatedClient.put(
-        `/api/gaming-sessions/${session.id}/add-time/`,
-        {
-          additional_minutes: timeToAdd,
-        },
+      const updatedSessionData = await sessionsApi.addTimeToSession(
+        session.id,
+        timeToAdd,
       );
 
       // Update the specific session with new data
-      if (response.data) {
-        const updatedSession = transformSessionData(response.data);
+      if (updatedSessionData) {
+        const updatedSession = transformSessionData(updatedSessionData);
         setSessions((prevSessions) =>
           prevSessions.map((s) => (s.id === session.id ? updatedSession : s)),
         );
@@ -355,9 +265,7 @@ const SessionDashboard = () => {
         fetchActiveSessions();
       }
     } catch (error) {
-      const errorMessage =
-        error.response?.data?.message || "Failed to add time to session";
-      console.error("Error adding time to session:", errorMessage);
+      console.error("Error adding time to session:", error);
       // TODO: Show user-friendly error notification
     }
   };
@@ -372,15 +280,14 @@ const SessionDashboard = () => {
         quantity: 1,
       };
 
-      const authenticatedClient = createAuthenticatedRequest();
-      const response = await authenticatedClient.post(
-        `/api/gaming-sessions/${session.id}/add-item/`,
+      const updatedSessionData = await sessionsApi.addItemToSession(
+        session.id,
         itemData,
       );
 
       // Update the specific session with new charges
-      if (response.data) {
-        const updatedSession = transformSessionData(response.data);
+      if (updatedSessionData) {
+        const updatedSession = transformSessionData(updatedSessionData);
         setSessions((prevSessions) =>
           prevSessions.map((s) => (s.id === session.id ? updatedSession : s)),
         );
@@ -389,20 +296,9 @@ const SessionDashboard = () => {
         fetchActiveSessions();
       }
     } catch (error) {
-      const errorMessage =
-        error.response?.data?.message || "Failed to add item to session";
-      console.error("Error adding item to session:", errorMessage);
+      console.error("Error adding item to session:", error);
       // TODO: Show user-friendly error notification
     }
-  };
-
-  const handleRefresh = () => {
-    fetchActiveSessions();
-    fetchPastSessions();
-  };
-
-  const handleNewSession = () => {
-    navigate("/new-session");
   };
 
   if (loading) {
@@ -452,7 +348,6 @@ const SessionDashboard = () => {
 
   return (
     <div className="flex h-screen flex-col bg-slate-900">
-      {/* Main Content */}
       <main className="flex-1 overflow-y-auto p-6 lg:p-8">
         <div className="mx-auto max-w-7xl">
           <div className="flex flex-col gap-8">
@@ -471,15 +366,6 @@ const SessionDashboard = () => {
               </div>
 
               <div className="flex items-center gap-4">
-                {/* Refresh Button */}
-                <button
-                  onClick={handleRefresh}
-                  className="flex items-center justify-center gap-2 rounded-lg bg-white/5 px-3 py-2 text-sm font-medium text-white/80 transition-colors hover:bg-white/10"
-                >
-                  <RefreshCw className="w-4 h-4" />
-                </button>
-
-                {/* Search */}
                 <div className="relative w-64">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/50 w-4 h-4" />
                   <input
@@ -490,7 +376,6 @@ const SessionDashboard = () => {
                   />
                 </div>
 
-                {/* New Session Button */}
                 <button
                   onClick={handleNewSession}
                   className="flex items-center justify-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition-all hover:bg-blue-500/90"

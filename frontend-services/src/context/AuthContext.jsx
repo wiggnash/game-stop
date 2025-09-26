@@ -1,7 +1,8 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
-import { tokenUtils } from "../api/TokenAuthenticationService";
+import React, { createContext, useContext, useState, useEffect } from "react";
+import * as authApi from "../api/auth.api";
+import * as tokenStorage from "../services/tokenStorage.service";
 
-// Create the Authentication Context
+// Create context
 const AuthContext = createContext(null);
 
 // Custom hook to use auth context
@@ -16,87 +17,96 @@ export const useAuth = () => {
 // Auth Provider Component
 export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [user, setUser] = useState(null); // Store user info if needed
 
+  // Check authentication status on app load
   useEffect(() => {
-    // Check authentication status on app load
     const checkAuth = () => {
-      const authStatus = tokenUtils.isAuthenticated();
-      setIsAuthenticated(authStatus);
-
-      // If authenticated, you could also decode and set user info
-      if (authStatus) {
-        const userInfo = tokenUtils.getUserInfo();
-        setUser(userInfo);
-      }
-
+      const hasValidToken = tokenStorage.hasValidToken();
+      setIsAuthenticated(hasValidToken);
       setIsLoading(false);
     };
 
     checkAuth();
-
-    // Optional: Set up token refresh interval
-    const refreshInterval = tokenUtils.setupTokenRefresh(() => {
-      // Token expired, logout user
-      logout();
-    });
-
-    // Cleanup interval on unmount
-    return () => {
-      if (refreshInterval) {
-        clearInterval(refreshInterval);
-      }
-    };
   }, []);
 
-  const login = (accessToken, refreshToken, userInfo = null) => {
-    tokenUtils.setTokens(accessToken, refreshToken);
-    setIsAuthenticated(true);
+  // Login method
+  const login = async (credentials) => {
+    try {
+      const response = await authApi.login(credentials);
 
-    // Set user info if provided or decode from token
-    const userData = userInfo || tokenUtils.getUserInfo();
-    setUser(userData);
+      // Store tokens
+      tokenStorage.setTokens(response.tokens.access, response.tokens.refresh);
+
+      // Update state
+      setIsAuthenticated(true);
+
+      return { success: true, data: response };
+    } catch (error) {
+      console.error("Login error:", error);
+      return {
+        success: false,
+        error: error.response?.data || error.message,
+      };
+    }
   };
 
+  // Register method
+  const register = async (userData) => {
+    try {
+      const response = await authApi.register(userData);
+
+      // Store tokens
+      tokenStorage.setTokens(response.tokens.access, response.tokens.refresh);
+
+      // Update state
+      setIsAuthenticated(true);
+
+      return { success: true, data: response };
+    } catch (error) {
+      console.error("Registration error:", error);
+      return {
+        success: false,
+        error: error.response?.data || error.message,
+      };
+    }
+  };
+
+  // Logout method
   const logout = () => {
-    tokenUtils.clearTokens();
+    tokenStorage.clearTokens();
     setIsAuthenticated(false);
     setUser(null);
   };
 
-  const refreshToken = async () => {
+  // Fetch user data
+  const fetchUserData = async () => {
     try {
-      const result = await tokenUtils.refreshAccessToken();
-      if (result.success) {
-        return result.accessToken;
-      } else {
-        // Refresh failed, logout user
-        logout();
-        return null;
-      }
+      const userData = await authApi.getMe();
+      setUser(userData);
+      return { success: true, data: userData };
     } catch (error) {
-      console.error("Token refresh failed:", error);
-      logout();
-      return null;
+      console.error("Fetch user error:", error);
+      // If /me/ fails, likely token is invalid - logout
+      if (error.response?.status === 401) {
+        logout();
+      }
+      return { success: false, error: error.message };
     }
   };
 
   const value = {
     // State
     isAuthenticated,
-    isLoading,
     user,
+    isLoading,
 
     // Methods
     login,
+    register,
     logout,
-    refreshToken,
-
-    // Token utilities (if needed by components)
-    getAccessToken: tokenUtils.getAccessToken,
-    getRefreshToken: tokenUtils.getRefreshToken,
-    isTokenExpired: tokenUtils.isTokenExpired,
+    fetchUserData,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
