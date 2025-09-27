@@ -410,12 +410,12 @@ const SessionDetails = () => {
             </div>
 
             {/* Notes Section */}
-            {sessionData.notes && (
+            {/* {sessionData.notes && (
               <div className="bg-slate-900/50 rounded-lg shadow-sm border border-slate-800 p-6">
                 <h3 className="text-lg font-bold text-white mb-2">Notes</h3>
                 <p className="text-slate-300 text-sm">{sessionData.notes}</p>
               </div>
-            )}
+            )}*/}
           </div>
 
           {/* Right Column - Sidebar */}
@@ -435,7 +435,7 @@ const SessionDetails = () => {
                 <div className="text-center">
                   <p className="text-sm text-slate-400 mb-1">Current Charges</p>
                   <p className="text-4xl font-bold text-white">
-                    ${parseFloat(sessionData.total_session_cost).toFixed(2)}
+                    ₹{parseFloat(sessionData.total_session_cost).toFixed(2)}
                   </p>
                 </div>
               </div>

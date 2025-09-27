@@ -1,12 +1,18 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { AgGridReact } from "ag-grid-react";
+import {
+  ModuleRegistry,
+  AllCommunityModule,
+  themeQuartz,
+} from "ag-grid-community";
 import {
   Search,
   Plus,
   RefreshCw,
   Calendar,
   Clock,
-  DollarSign,
+  IndianRupee,
   User,
   Monitor,
   Settings,
@@ -14,6 +20,25 @@ import {
 } from "lucide-react";
 import SessionCard from "../components/sessionDashboard/SessionCard";
 import * as sessionsApi from "../api/sessions.api";
+
+// Register all AG Grid community modules
+ModuleRegistry.registerModules([AllCommunityModule]);
+
+// Create custom dark theme using the new Theming API
+const customDarkTheme = themeQuartz.withParams({
+  backgroundColor: "rgb(15 23 42 / 0.5)",
+  headerBackgroundColor: "rgb(30 41 59)",
+  oddRowBackgroundColor: "transparent",
+  rowHoverColor: "rgb(51 65 85 / 0.5)",
+  borderColor: "rgb(51 65 85)",
+  foregroundColor: "rgb(226 232 240)",
+  headerFontSize: 12,
+  headerFontWeight: 500,
+  fontSize: 14,
+  cellHorizontalPaddingScale: 1.2,
+  spacing: 8,
+  headerTextColor: "rgb(148 163 184)",
+});
 
 const SessionDashboard = () => {
   const navigate = useNavigate();
@@ -101,6 +126,132 @@ const SessionDashboard = () => {
       checkOutTime: apiSession.check_out_time,
     };
   };
+
+  // AG Grid Column Definitions
+  const columnDefs = useMemo(
+    () => [
+      {
+        headerName: "Customer",
+        field: "user__username",
+        sortable: true,
+        filter: true,
+        flex: 1,
+        minWidth: 150,
+        cellRenderer: (params) => {
+          return (
+            <div className="flex items-center gap-2 h-full">
+              <User className="w-4 h-4 text-slate-400" />
+              <span className="font-medium">{params.value}</span>
+            </div>
+          );
+        },
+      },
+      {
+        headerName: "Station",
+        field: "station__name",
+        sortable: true,
+        filter: true,
+        flex: 1,
+        minWidth: 120,
+        cellRenderer: (params) => {
+          return (
+            <div className="flex items-center gap-2 h-full">
+              <Monitor className="w-4 h-4 text-slate-400" />
+              <span>{params.value}</span>
+            </div>
+          );
+        },
+      },
+      {
+        headerName: "Platform",
+        field: "gaming_service__service_type",
+        sortable: true,
+        filter: true,
+        flex: 1,
+        minWidth: 150,
+      },
+      {
+        headerName: "Check In",
+        field: "check_in_time",
+        sortable: true,
+        filter: true,
+        flex: 1.5,
+        minWidth: 180,
+        cellRenderer: (params) => {
+          return (
+            <div className="flex items-center gap-2 h-full">
+              <Calendar className="w-4 h-4 text-slate-400" />
+              <span>{formatDate(params.value)}</span>
+            </div>
+          );
+        },
+      },
+      {
+        headerName: "Duration",
+        field: "check_out_time",
+        sortable: true,
+        flex: 1,
+        minWidth: 120,
+        cellRenderer: (params) => {
+          const duration = calculateSessionDuration(
+            params.data.check_in_time,
+            params.value,
+          );
+          return (
+            <div className="flex items-center gap-2 h-full">
+              <Clock className="w-4 h-4 text-slate-400" />
+              <span>{duration}</span>
+            </div>
+          );
+        },
+      },
+      {
+        headerName: "Total Cost",
+        field: "total_session_cost",
+        sortable: true,
+        filter: true,
+        flex: 1,
+        minWidth: 120,
+        cellRenderer: (params) => {
+          return (
+            <div className="flex items-center gap-2 h-full">
+              <IndianRupee className="w-4 h-4 text-green-400" />
+              <span className="font-medium text-green-400">
+                ${parseFloat(params.value).toFixed(2)}
+              </span>
+            </div>
+          );
+        },
+      },
+      {
+        headerName: "Status",
+        field: "session_status",
+        sortable: true,
+        filter: true,
+        flex: 1,
+        minWidth: 130,
+        cellRenderer: (params) => {
+          return (
+            <div className="flex items-center justify-center h-full">
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300">
+                {params.value}
+              </span>
+            </div>
+          );
+        },
+      },
+    ],
+    [],
+  );
+
+  // AG Grid default column definition
+  const defaultColDef = useMemo(
+    () => ({
+      sortable: true,
+      resizable: true,
+    }),
+    [],
+  );
 
   // Fetch active sessions
   const fetchActiveSessions = async () => {
@@ -433,99 +584,19 @@ const SessionDashboard = () => {
                   <p className="text-red-400">{pastError}</p>
                 </div>
               ) : pastSessions.length > 0 ? (
-                <div className="overflow-x-auto bg-white/5 rounded-lg shadow-sm border border-white/10">
-                  <table className="w-full text-sm text-left">
-                    <thead className="bg-white/10 text-xs text-white/80 uppercase tracking-wider">
-                      <tr>
-                        <th className="px-6 py-3" scope="col">
-                          <div className="flex items-center gap-2">
-                            <User className="w-4 h-4" />
-                            Customer
-                          </div>
-                        </th>
-                        <th className="px-6 py-3" scope="col">
-                          <div className="flex items-center gap-2">
-                            <Monitor className="w-4 h-4" />
-                            Station
-                          </div>
-                        </th>
-                        <th className="px-6 py-3" scope="col">
-                          Platform
-                        </th>
-                        <th className="px-6 py-3" scope="col">
-                          <div className="flex items-center gap-2">
-                            <Calendar className="w-4 h-4" />
-                            Check In
-                          </div>
-                        </th>
-                        <th className="px-6 py-3" scope="col">
-                          <div className="flex items-center gap-2">
-                            <Clock className="w-4 h-4" />
-                            Duration
-                          </div>
-                        </th>
-                        <th className="px-6 py-3" scope="col">
-                          <div className="flex items-center gap-2">
-                            <DollarSign className="w-4 h-4" />
-                            Total Cost
-                          </div>
-                        </th>
-                        <th className="px-6 py-3 text-center" scope="col">
-                          Status
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/10">
-                      {pastSessions.slice(0, 10).map((session) => (
-                        <tr
-                          key={session.id}
-                          className="hover:bg-white/5 transition-colors"
-                        >
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="font-medium text-white">
-                              {session.user__username}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-white/80">
-                              {session.station__name}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-white/80">
-                              {session.gaming_service__service_type}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-white/80">
-                              {formatDate(session.check_in_time)}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-white/80">
-                              {calculateSessionDuration(
-                                session.check_in_time,
-                                session.check_out_time,
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="font-medium text-green-400">
-                              $
-                              {parseFloat(session.total_session_cost).toFixed(
-                                2,
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-center">
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300">
-                              {session.session_status}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div style={{ height: "500px", width: "100%" }}>
+                  <AgGridReact
+                    rowData={pastSessions}
+                    columnDefs={columnDefs}
+                    defaultColDef={defaultColDef}
+                    pagination={true}
+                    paginationPageSize={10}
+                    paginationPageSizeSelector={[10, 20, 50]}
+                    theme={customDarkTheme}
+                    domLayout="normal"
+                    rowHeight={60}
+                    headerHeight={50}
+                  />
                 </div>
               ) : (
                 <div className="text-center py-16 bg-white/5 rounded-lg border border-white/10">
