@@ -118,7 +118,7 @@ const SessionCard = ({
               {session.time}
             </p>
             <p className="text-sm font-medium text-white/60">
-              ${" "}
+              ₹{" "}
               {typeof session.charges === "number"
                 ? session.charges.toFixed(2)
                 : session.charges}

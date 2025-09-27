@@ -1,1 +1,26 @@
 @import "tailwindcss";
+
+/* Custom AG Grid Dark Theme Overrides */
+.ag-theme-alpine-dark {
+    --ag-background-color: rgb(15 23 42 / 0.5);
+    --ag-header-background-color: rgb(30 41 59);
+    --ag-odd-row-background-color: transparent;
+    --ag-row-hover-color: rgb(51 65 85 / 0.5);
+    --ag-border-color: rgb(51 65 85);
+    --ag-foreground-color: rgb(226 232 240);
+    --ag-header-foreground-color: rgb(148 163 184);
+    --ag-font-family: inherit;
+}
+
+.ag-theme-alpine-dark .ag-header-cell {
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.ag-theme-alpine-dark .ag-cell {
+    display: flex;
+    align-items: center;
+    color: rgb(226 232 240);
+}
