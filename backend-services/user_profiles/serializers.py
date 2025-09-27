@@ -96,3 +96,24 @@ class RegisterSerializer(serializers.ModelSerializer):
         if data['password'] != data['password_confirm']:
             raise serializers.ValidationError("Passwords don't match.")
         return data
+
+class UserProfileListSerializer(serializers.ModelSerializer):
+    user_id = serializers.IntegerField(source='user.id', read_only=True)
+    username = serializers.CharField(source='user.username', read_only=True)
+    first_name = serializers.CharField(source='user.first_name', read_only=True)
+    last_name = serializers.CharField(source='user.last_name', read_only=True)
+    email = serializers.EmailField(source='user.email', read_only=True)
+    is_active = serializers.BooleanField(source='user.is_active', read_only=True)
+
+    class Meta:
+        model = UserProfile
+        fields = [
+            'id',
+            'user_id',
+            'username',
+            'first_name',
+            'last_name',
+            'email',
+            'phone_number',
+            'is_active'
+        ]
