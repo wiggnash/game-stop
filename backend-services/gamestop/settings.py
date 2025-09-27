@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'corsheaders',
 
     # installed apps
+    'durations',
     'gaming_services',
     'gaming_sessions',
     'payments',
