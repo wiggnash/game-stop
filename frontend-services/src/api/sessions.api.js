@@ -1,5 +1,15 @@
 import apiClient from "./client";
 
+export const createNewSession = async (data) => {
+  const response = await apiClient.post("/api/gaming-sessions/", data);
+  return response.data;
+};
+
+export const getDropdownOptions = async () => {
+  const response = await apiClient.get("/api/gaming-sessions/drop-downs/");
+  return response.data;
+};
+
 export const getActiveSessions = async () => {
   const response = await apiClient.get("/api/gaming-sessions/active/");
   return response.data;

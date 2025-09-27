@@ -16,7 +16,6 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import SessionDashboard from "./pages/SessionDashboard";
 import FinancialDashboard from "./pages/FinancialDashboard";
-import NewSession from "./pages/NewSession";
 import SessionDetails from "./pages/SessionDetails";
 import SnacksManagement from "./pages/SnacksManagement";
 import UserDashboard from "./pages/UserDashboard";
@@ -72,17 +71,6 @@ function App() {
               <ProtectedRoute>
                 <AppLayout>
                   <FinancialDashboard />
-                </AppLayout>
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/new-session"
-            element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <NewSession />
                 </AppLayout>
               </ProtectedRoute>
             }

@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
 import { AgGridReact } from "ag-grid-react";
 import {
   ModuleRegistry,
@@ -19,6 +18,7 @@ import {
   Bell,
 } from "lucide-react";
 import SessionCard from "../components/sessionDashboard/SessionCard";
+import NewSessionModal from "../components/sessionDashboard/NewSessionModal";
 import * as sessionsApi from "../api/sessions.api";
 
 // Register all AG Grid community modules
@@ -41,7 +41,6 @@ const customDarkTheme = themeQuartz.withParams({
 });
 
 const SessionDashboard = () => {
-  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [sessions, setSessions] = useState([]);
   const [pastSessions, setPastSessions] = useState([]);
@@ -49,6 +48,14 @@ const SessionDashboard = () => {
   const [pastLoading, setPastLoading] = useState(true);
   const [error, setError] = useState(null);
   const [pastError, setPastError] = useState(null);
+  const [showNewSessionModal, setShowNewSessionModal] = useState(false);
+  const [sessionLoading, setSessionLoading] = useState(false);
+  const [dropdownData, setDropdownData] = useState({
+    stations: [],
+    durations: [],
+  });
+
+  const [dropdownError, setDropdownError] = useState(null);
 
   // Utility functions for session data
   const calculateRemainingTime = (checkInTime, checkOutTime) => {
@@ -324,10 +331,6 @@ const SessionDashboard = () => {
       session.platform.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
-  const handleNewSession = () => {
-    navigate("/new-session");
-  };
-
   // Session action handlers with API calls
   const handlePause = async (session) => {
     console.log("Pausing session:", session.id);
@@ -450,6 +453,51 @@ const SessionDashboard = () => {
       console.error("Error adding item to session:", error);
       // TODO: Show user-friendly error notification
     }
+  };
+
+  useEffect(() => {
+    const fetchDropdownOptions = async () => {
+      try {
+        setDropdownError(null);
+        const data = await sessionsApi.getDropdownOptions();
+
+        setDropdownData({
+          stations: data.active_stations || [],
+          durations: data.durations || [],
+        });
+      } catch (err) {
+        console.error("Error fetching dropdown options:", err);
+        const errorMessage =
+          err.response?.data?.message ||
+          err.message ||
+          "Failed to load dropdown options";
+        setDropdownError(errorMessage);
+      }
+    };
+
+    fetchDropdownOptions();
+  }, []);
+
+  const handleNewSession = () => {
+    setShowNewSessionModal(true);
+  };
+
+  const handleCloseNewSessionModal = () => {
+    setShowNewSessionModal(false);
+  };
+
+  // Add submit handler for new session (for now just console.log)
+  const handleNewSessionSubmit = (payload) => {
+    setSessionLoading(true);
+    console.log("New session data:", payload);
+
+    // Simulate API call - Replace this with actual API call later
+    setTimeout(() => {
+      setSessionLoading(false);
+      handleCloseNewSessionModal();
+      // TODO: Call your create session API here
+      // TODO: Refresh sessions list after successful creation
+    }, 1000);
   };
 
   if (loading) {
@@ -613,6 +661,16 @@ const SessionDashboard = () => {
                 </div>
               )}
             </div>
+
+            <NewSessionModal
+              isOpen={showNewSessionModal}
+              onClose={handleCloseNewSessionModal}
+              onSubmit={handleNewSessionSubmit}
+              isLoading={sessionLoading}
+              stations={dropdownData.stations}
+              durations={dropdownData.durations}
+              dropdownError={dropdownError}
+            />
           </div>
         </div>
       </main>

@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from gaming_services.models import GamingService, Station
+from durations.models import Duration
 from simple_history.models import HistoricalRecords
 
 class GamingSession(models.Model):
@@ -19,6 +20,7 @@ class GamingSession(models.Model):
 
     check_in_time = models.DateTimeField()
     check_out_time = models.DateTimeField(null=True, blank=True)
+    duration = models.ForeignKey(Duration, on_delete=models.SET_NULL, null=True, related_name='gaming_sessions_duration')
     calculated_gaming_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     total_session_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     session_status = models.CharField(max_length=20, choices=SESSION_STATUS_CHOICES, default='ACTIVE')
