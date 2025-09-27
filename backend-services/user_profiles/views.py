@@ -5,15 +5,20 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from .models import UserProfile
 from django.contrib.auth.models import User
 
-from .serializers import UserProfileSerializer, LoginSerializer, RegisterSerializer, UserMeSerializer
+from .serializers import UserProfileSerializer, LoginSerializer, RegisterSerializer, UserMeSerializer, UserProfileListSerializer
 
 class UserProfileListCreateView(generics.ListCreateAPIView):
     queryset = UserProfile.objects.all()
     serializer_class = UserProfileSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_serializer_class(self):
+        if self.request.method == 'GET':
+            return UserProfileListSerializer
+        return UserProfileSerializer
+
     def get_queryset(self):
-        return UserProfile.objects.filter(archive=False)
+        return UserProfile.objects.filter(archive=False).select_related('user')
 
     def perform_create(self, serializer):
         serializer.save(
