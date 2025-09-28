@@ -4,6 +4,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from .models import UserProfile
 from django.contrib.auth.models import User
+from django.db.models import Q
 
 from .serializers import UserProfileSerializer, LoginSerializer, RegisterSerializer, UserMeSerializer, UserProfileListSerializer
 
@@ -18,7 +19,16 @@ class UserProfileListCreateView(generics.ListCreateAPIView):
         return UserProfileSerializer
 
     def get_queryset(self):
-        return UserProfile.objects.filter(archive=False).select_related('user')
+        queryset = UserProfile.objects.filter(archive=False).select_related('user')
+
+        search = self.request.query_params.get("search")
+        if search:
+            queryset = queryset.filter(
+                Q(user__username__icontains=search) |
+                Q(user__first_name__icontains=search) |
+                Q(user__last_name__icontains=search)
+            )
+        return queryset
 
     def perform_create(self, serializer):
         serializer.save(
