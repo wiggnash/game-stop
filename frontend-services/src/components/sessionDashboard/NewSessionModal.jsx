@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { X, User, Monitor, Clock, FileText, AlertCircle } from "lucide-react";
+import * as usersApi from "../../api/users.api";
 
 const NewSessionModal = ({
   isOpen,
@@ -18,13 +19,7 @@ const NewSessionModal = ({
   });
 
   const [formErrors, setFormErrors] = useState({});
-
-  // Mock users data - keeping this for now as discussed
-  const mockUsers = [
-    { id: 1, username: "alex_morgan", name: "Alex Morgan" },
-    { id: 2, username: "mia_hamm", name: "Mia Hamm" },
-    { id: 3, username: "sam_kerr", name: "Sam Kerr" },
-  ];
+  const [userResults, setUserResults] = useState([]);
 
   // Reset form when modal opens/closes
   useEffect(() => {
@@ -87,6 +82,15 @@ const NewSessionModal = ({
   };
 
   if (!isOpen) return null;
+
+  const fetchUsers = async (query) => {
+    try {
+      const users = await usersApi.getUsersWithFilters(query);
+      setUserResults(users || []);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -154,23 +158,60 @@ const NewSessionModal = ({
                     Select Customer <span className="text-red-400">*</span>
                   </div>
                 </label>
-                <select
-                  name="userId"
-                  value={formData.userId}
-                  onChange={handleFormChange}
-                  className={`w-full px-4 py-2.5 bg-slate-800 border rounded-lg text-white focus:outline-none focus:ring-2 transition-colors ${
-                    formErrors.userId
-                      ? "border-red-500 focus:ring-red-500"
-                      : "border-slate-700 focus:ring-[#1173d4]"
-                  }`}
-                >
-                  <option value="">Choose a customer...</option>
-                  {mockUsers.map((user) => (
-                    <option key={user.id} value={user.id}>
-                      {user.name} (@{user.username})
-                    </option>
-                  ))}
-                </select>
+
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={formData.username || ""}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setFormData((prev) => ({
+                        ...prev,
+                        username: val,
+                        userId: "",
+                      }));
+                      if (val.length >= 3) {
+                        fetchUsers(val);
+                      } else {
+                        setUserResults([]);
+                      }
+                    }}
+                    placeholder="Type username, name, or email..."
+                    className={`w-full px-4 py-2.5 bg-slate-800 border rounded-lg text-white focus:outline-none focus:ring-2 transition-colors ${
+                      formErrors.userId
+                        ? "border-red-500 focus:ring-red-500"
+                        : "border-slate-700 focus:ring-[#1173d4]"
+                    }`}
+                  />
+
+                  {/* Results dropdown */}
+                  {userResults.length > 0 && (
+                    <ul className="absolute z-50 w-full bg-slate-900 border border-slate-700 rounded-lg mt-1 max-h-60 overflow-auto">
+                      {userResults.map((user) => (
+                        <li
+                          key={user.id}
+                          className="px-4 py-2 hover:bg-slate-700 cursor-pointer"
+                          onClick={() => {
+                            setFormData((prev) => ({
+                              ...prev,
+                              userId: user.user_id,
+                              username: user.username,
+                            }));
+                            setUserResults([]);
+                          }}
+                        >
+                          <div className="text-white font-medium">
+                            {user.username}
+                          </div>
+                          <div className="text-slate-400 text-sm">
+                            {user.first_name} {user.last_name} – {user.email}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
                 {formErrors.userId && (
                   <p className="mt-1.5 text-sm text-red-400 flex items-center gap-1">
                     <span className="text-xs">⚠</span> {formErrors.userId}
