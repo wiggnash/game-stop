@@ -2,7 +2,6 @@ from rest_framework import serializers
 from .models import GamingSession
 from payments.models import Payment
 from session_snacks.models import SessionSnack
-from gaming_services.models import Station
 from durations.models import Duration
 
 class GamingSessionSerializer(serializers.ModelSerializer):
@@ -17,12 +16,6 @@ class GamingSessionSerializer(serializers.ModelSerializer):
             'id', 'check_out_time', 'calculated_gaming_cost',
             'total_session_cost', 'created_at', 'updated_at'
         ]
-
-class StationDropdownSerializer(serializers.ModelSerializer):
-    gaming_service_type = serializers.CharField(source='gaming_service.service_type', read_only=True)
-    class Meta:
-        model = Station
-        fields = ['id', 'name', 'gaming_service_type']
 
 class DurationDropdownSerializer(serializers.ModelSerializer):
     type = serializers.CharField(source='get_type_display', read_only=True)

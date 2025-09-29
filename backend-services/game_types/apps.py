@@ -1,6 +1,6 @@
 from django.apps import AppConfig
 
 
-class GamingServicesConfig(AppConfig):
+class GameTypesConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
-    name = 'gaming_services'
+    name = 'game_types'
