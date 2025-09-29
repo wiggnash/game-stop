@@ -9,12 +9,10 @@ from .utils import (
     calculate_gaming_cost,
 )
 from durations.models import Duration
-from gaming_services.models import GamingService, Station
 from .serializers import (
     GamingSessionSerializer,
     GamingSessionActiveDashboardSerializer,
     GamingSessionDetailSerializer,
-    StationDropdownSerializer,
     DurationDropdownSerializer
 )
 
@@ -134,11 +132,9 @@ class GamingSessionListDropDownView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
-        active_stations = Station.objects.filter(is_occupied=False)
         durations = Duration.objects.filter(archive=False)
 
         # Serialize the data
-        stations_serializer = StationDropdownSerializer(active_stations, many=True)
         durations_serializer = DurationDropdownSerializer(durations, many=True)
 
         reponse = {
