@@ -11,6 +11,7 @@ import {
   UserPlus,
 } from "lucide-react";
 import * as userApi from "../api/users.api";
+import AddNewUserModal from "../components/userManagement/AddNewUserModal";
 
 const UserDashboard = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -18,6 +19,7 @@ const UserDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filterStatus, setFilterStatus] = useState("all"); // all, active, inactive
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Fetch all the users from the API
   useEffect(() => {
@@ -80,6 +82,22 @@ const UserDashboard = () => {
     console.log("Exporting customer data...");
   };
 
+  const handleOpenModal = () => {
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+  };
+
+  const handleAddUser = (userData) => {
+    console.log("New user data:", userData);
+    // TODO: Call your API to create the user
+    // Example: await userApi.createUser(userData);
+    // Then refresh the users list
+    // fetchUsers();
+  };
+
   if (loading) {
     return (
       <div className="flex h-screen flex-col bg-[#101922]">
@@ -103,10 +121,10 @@ const UserDashboard = () => {
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
                 <h2 className="text-3xl font-bold tracking-tight text-white">
-                  Customer Management
+                  User Management
                 </h2>
                 <p className="text-slate-400 mt-1">
-                  Manage your gaming cafe customers and track their activity
+                  Manage your gaming cafe users and their roles
                 </p>
               </div>
 
@@ -119,9 +137,12 @@ const UserDashboard = () => {
                   Export
                 </button>
 
-                <button className="inline-flex items-center justify-center rounded-lg bg-[#1173d4] px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-[#1173d4]/90 transition-colors">
+                <button
+                  onClick={handleOpenModal}
+                  className="inline-flex items-center justify-center rounded-lg bg-[#1173d4] px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-[#1173d4]/90 transition-colors"
+                >
                   <UserPlus className="w-4 h-4 mr-2" />
-                  Add Customer
+                  Add User
                 </button>
               </div>
             </div>
@@ -268,6 +289,11 @@ const UserDashboard = () => {
           </div>
         </div>
       </main>
+      <AddNewUserModal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        onSubmit={handleAddUser}
+      />
     </div>
   );
 };
