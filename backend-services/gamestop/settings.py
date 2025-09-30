@@ -47,11 +47,15 @@ INSTALLED_APPS = [
 
     # installed apps
     'durations',
+    'game_types',
     'gaming_sessions',
     'payments',
     'roles',
+    'service_prices',
+    'service_types',
     'session_snacks',
     'snacks',
+    'stations',
     'user_profiles',
     'user_roles',
 ]

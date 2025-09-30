@@ -17,11 +17,6 @@ class Station(models.Model):
         on_delete=models.CASCADE,
         related_name='stations'
     )
-    service_type = models.ForeignKey(
-        ServiceType,
-        on_delete=models.CASCADE,
-        related_name='stations'
-    )
     is_active = models.BooleanField(default=True)
 
     # Common audit fields
