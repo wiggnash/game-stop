@@ -32,7 +32,7 @@ const Header = () => {
   const navigationItems = [
     { path: "/dashboard", label: "Dashboard", icon: "dashboard" },
     { path: "/snacks", label: "Snacks", icon: "fastfood" },
-    { path: "/users", label: "Customers", icon: "group" },
+    { path: "/users", label: "Users", icon: "group" },
     { path: "/financial", label: "Reports", icon: "assessment" },
   ];
 
