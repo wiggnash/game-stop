@@ -1,7 +1,9 @@
 from rest_framework import serializers
 from .models import UserProfile
+from roles.models import Role
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
+import re
 
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
@@ -117,3 +119,51 @@ class UserProfileListSerializer(serializers.ModelSerializer):
             'phone_number',
             'is_active'
         ]
+
+class UserProfileCreateAdminSerializer(serializers.Serializer):
+    first_name = serializers.CharField(required=True, max_length=100)
+    last_name = serializers.CharField(required=True, max_length=150)
+    username = serializers.CharField(required=True, max_length=150)
+    phone_number = serializers.CharField(required=True, max_length=15)
+    email = serializers.CharField(required=False, allow_blank=True)
+    role = serializers.IntegerField(required=True)
+    password = serializers.CharField(required=False, write_only=True, min_length=8)
+    confirm_password = serializers.CharField(required=False, write_only=True)
+
+    def validate_phone_number(self, value):
+        phone_regex = re.compile(r'^\+91[6-9]\d{9}$')
+        if phone_regex.match(value):
+            raise serializers.ValidationError("Please Enter an Valid Phone number")
+
+        if UserProfile.objects.filter(phone_number=value).exists():
+            raise serializers.ValidationError("Phone number already exists")
+
+        return value
+
+    def validate_username(self, value):
+        if User.objects.filter(username=value).exists():
+            raise serializers.ValidationError("Username already exists")
+
+        return value
+
+    def validate_email(self, value):
+        if value and User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("This email is already registered.")
+        return value
+
+    def validate(self, data):
+        role = data.get("role")
+        password = data.get("password")
+        confirm_password = data.get("confirm_password")
+
+        admin_role = Role.objects.get(id=role)
+
+        if admin_role:
+            if not password:
+                raise serializers.ValidationError({"password": "Password is required for admin users."})
+            if not confirm_password:
+                raise serializers.ValidationError({"confirm_password": "Confirm password is required for admin users."})
+            if password != confirm_password:
+                raise serializers.ValidationError({"confirm_password": "Passwords do not match."})
+
+        return data

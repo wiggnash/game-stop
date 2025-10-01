@@ -90,12 +90,29 @@ const UserDashboard = () => {
     setIsModalOpen(false);
   };
 
-  const handleAddUser = (userData) => {
-    console.log("New user data:", userData);
-    // TODO: Call your API to create the user
-    // Example: await userApi.createUser(userData);
-    // Then refresh the users list
-    // fetchUsers();
+  const handleAddUser = async (userData) => {
+    try {
+      // prepare the payload
+      const payload = {
+        first_name: userData.firstName,
+        last_name: userData.lastName,
+        username: userData.username,
+        phone_number: `+91 ${userData.phoneNumber}`,
+        email: userData.email || "",
+        role: parseInt(userData.role),
+        password: userData.password,
+        confirm_password: userData.confirmPassword,
+      };
+      await userApi.createUserByAdmin(payload);
+      await fetchUsers();
+
+      // Optional: Show success message to user
+      // You might want to add a toast notification here
+    } catch (error) {
+      console.error("Error creating user:", error);
+      setError(error.message);
+      // Optional: Show error message to user
+    }
   };
 
   if (loading) {

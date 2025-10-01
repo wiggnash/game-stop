@@ -13,3 +13,9 @@ export const getUsersWithFilters = async (searchTerm) => {
   );
   return response.data;
 };
+
+// Create a user from the user management page
+export const createUserByAdmin = async (userData) => {
+  const response = await apiClient.post(`/api/user-profiles/create/`, userData);
+  return response.data;
+};
