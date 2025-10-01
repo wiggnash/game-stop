@@ -2,11 +2,23 @@ from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
-from .models import UserProfile
-from django.contrib.auth.models import User
 from django.db.models import Q
 
-from .serializers import UserProfileSerializer, LoginSerializer, RegisterSerializer, UserMeSerializer, UserProfileListSerializer
+# Import Models
+from roles.models import Role
+from django.contrib.auth.models import User
+from .models import UserProfile
+from user_roles.models import UserRole
+
+# Serializers
+from .serializers import (
+    UserProfileSerializer,
+    LoginSerializer,
+    RegisterSerializer,
+    UserMeSerializer,
+    UserProfileListSerializer,
+    UserProfileCreateAdminSerializer
+)
 
 class UserProfileListCreateView(generics.ListCreateAPIView):
     queryset = UserProfile.objects.all()
@@ -151,3 +163,66 @@ class UserProfileMeView(generics.RetrieveAPIView):
     def get_object(self):
         # Return the UserProfile for the authenticated user
         return self.request.user.profile
+
+class UserProfileCreateByAdminView(generics.CreateAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = UserProfileCreateAdminSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        # Extract the data after validation
+        first_name = serializer.validated_data.get('first_name')
+        last_name = serializer.validated_data.get('last_name')
+        username = serializer.validated_data.get('username')
+        phone_number = serializer.validated_data.get('phone_number')
+        email = serializer.validated_data.get('email', '')
+        role_id = serializer.validated_data.get('role')
+        password = serializer.validated_data.get('password')
+
+        # What type of user are we going to create
+        try:
+            role_type = Role.objects.get(id=role_id)
+        except Role.DoesNotExist:
+            return Response(
+                {"error" : "Invalid Role is selected."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if role_type.role_name.lower() == "admin":
+            user_password=password
+        elif role_type.role_name.lower() == "customer":
+            user_password=f"{phone_number}@gamestop"
+
+        # Create the Auth User
+        user = User.objects.create_user(
+            username=username,
+            email=email,
+            password=user_password,
+            first_name=first_name,
+            last_name=last_name
+        )
+
+        # Create User Profile
+        user_profile = UserProfile.objects.create(
+            user=user,
+            phone_number=phone_number,
+            created_by=self.request.user,
+            updated_by=self.request.user
+        )
+
+        # Create User Role
+        user_role = UserRole.objects.create(
+            user=user,
+            role=role_type,
+            created_by=self.request.user,
+            updated_by=self.request.user
+        )
+
+        response_data = {
+            "username" : username,
+            "phone_number": phone_number
+        }
+
+        return Response(response_data, status=status.HTTP_201_CREATED)
