@@ -3,17 +3,25 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from datetime import timedelta
+
+# Models Import
 from .models import GamingSession
+from durations.models import Duration
+from stations.models import Station
+
+# Utils Import
 from .utils import (
     calculate_checkout_time,
     calculate_gaming_cost,
 )
-from durations.models import Duration
+
+# Serializer Import
 from .serializers import (
     GamingSessionSerializer,
     GamingSessionActiveDashboardSerializer,
     GamingSessionDetailSerializer,
-    DurationDropdownSerializer
+    DurationDropdownSerializer,
+    ActiveStatationDropDownSerializer
 )
 
 class GamingSessionListCreateView(generics.ListCreateAPIView):
@@ -132,14 +140,18 @@ class GamingSessionListDropDownView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
+        active_stations = Station.objects.filter(is_active=True)
         durations = Duration.objects.filter(archive=False)
+        number_of_players = [1,2,3,4]
 
         # Serialize the data
         durations_serializer = DurationDropdownSerializer(durations, many=True)
+        stations_serializer = ActiveStatationDropDownSerializer(active_stations, many=True)
 
         reponse = {
             'active_stations': stations_serializer.data,
-            'durations': durations_serializer.data
+            'durations': durations_serializer.data,
+            'number_of_players': number_of_players
         }
 
         return Response(reponse, status=status.HTTP_200_OK)

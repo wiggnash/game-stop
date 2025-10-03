@@ -1,5 +1,13 @@
-import { useState, useEffect } from "react";
-import { X, User, Monitor, Clock, FileText, AlertCircle } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import {
+  X,
+  User,
+  Monitor,
+  Clock,
+  FileText,
+  AlertCircle,
+  Users,
+} from "lucide-react";
 import * as usersApi from "../../api/users.api";
 
 const NewSessionModal = ({
@@ -9,37 +17,106 @@ const NewSessionModal = ({
   isLoading = false,
   stations = [],
   durations = [],
+  numberOfPlayers = [],
   dropdownError = null,
 }) => {
   const [formData, setFormData] = useState({
     userId: "",
+    username: "",
+    serviceTypeId: "",
+    gameTypeId: "",
     stationId: "",
     durationId: "",
+    numberOfPlayers: "",
     notes: "",
   });
 
   const [formErrors, setFormErrors] = useState({});
   const [userResults, setUserResults] = useState([]);
 
+  // Derive unique service types from stations
+  const serviceTypes = useMemo(() => {
+    const uniqueTypes = new Map();
+    stations.forEach((station) => {
+      if (!uniqueTypes.has(station.service_type)) {
+        uniqueTypes.set(station.service_type, {
+          id: station.service_type,
+          name: station.service_type_name,
+        });
+      }
+    });
+    return Array.from(uniqueTypes.values());
+  }, [stations]);
+
+  // Filter game types based on selected service type
+  const gameTypes = useMemo(() => {
+    if (!formData.serviceTypeId) return [];
+
+    const uniqueGameTypes = new Map();
+    stations
+      .filter(
+        (station) => station.service_type === parseInt(formData.serviceTypeId),
+      )
+      .forEach((station) => {
+        if (!uniqueGameTypes.has(station.game_type)) {
+          uniqueGameTypes.set(station.game_type, {
+            id: station.game_type,
+            name: station.game_type_name,
+          });
+        }
+      });
+    return Array.from(uniqueGameTypes.values());
+  }, [stations, formData.serviceTypeId]);
+
+  // Filter stations based on selected service type and game type
+  const filteredStations = useMemo(() => {
+    if (!formData.serviceTypeId || !formData.gameTypeId) return [];
+
+    return stations.filter(
+      (station) =>
+        station.service_type === parseInt(formData.serviceTypeId) &&
+        station.game_type === parseInt(formData.gameTypeId),
+    );
+  }, [stations, formData.serviceTypeId, formData.gameTypeId]);
+
   // Reset form when modal opens/closes
   useEffect(() => {
     if (!isOpen) {
       setFormData({
         userId: "",
+        username: "",
+        serviceTypeId: "",
+        gameTypeId: "",
         stationId: "",
         durationId: "",
+        numberOfPlayers: "",
         notes: "",
       });
       setFormErrors({});
+      setUserResults([]);
     }
   }, [isOpen]);
 
   const handleFormChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+
+    // Create updated form data with cascade resets
+    setFormData((prev) => {
+      const updated = { ...prev, [name]: value };
+
+      // When service type changes, reset game type and station
+      if (name === "serviceTypeId") {
+        updated.gameTypeId = "";
+        updated.stationId = "";
+      }
+
+      // When game type changes, reset station
+      if (name === "gameTypeId") {
+        updated.stationId = "";
+      }
+
+      return updated;
+    });
 
     // Clear error for this field
     if (formErrors[name]) {
@@ -54,12 +131,24 @@ const NewSessionModal = ({
       errors.userId = "Please select a user";
     }
 
+    if (!formData.serviceTypeId) {
+      errors.serviceTypeId = "Please select a Service Type";
+    }
+
+    if (!formData.gameTypeId) {
+      errors.gameTypeId = "Please select a Game Type";
+    }
+
     if (!formData.stationId) {
       errors.stationId = "Please select a station";
     }
 
     if (!formData.durationId) {
       errors.durationId = "Please select a duration";
+    }
+
+    if (!formData.numberOfPlayers) {
+      errors.numberOfPlayers = "Please select number of players";
     }
 
     setFormErrors(errors);
@@ -73,15 +162,16 @@ const NewSessionModal = ({
 
     const payload = {
       user_id: parseInt(formData.userId),
+      service_type_id: parseInt(formData.serviceTypeId),
+      game_type_id: parseInt(formData.gameTypeId),
       station_id: parseInt(formData.stationId),
       duration_id: parseInt(formData.durationId),
+      number_of_players: parseInt(formData.numberOfPlayers),
       notes: formData.notes || "",
     };
 
     onSubmit?.(payload, setFormErrors);
   };
-
-  if (!isOpen) return null;
 
   const fetchUsers = async (query) => {
     try {
@@ -89,8 +179,11 @@ const NewSessionModal = ({
       setUserResults(users || []);
     } catch (error) {
       console.error("Error fetching users:", error);
+      setUserResults([]);
     }
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -186,11 +279,11 @@ const NewSessionModal = ({
 
                   {/* Results dropdown */}
                   {userResults.length > 0 && (
-                    <ul className="absolute z-50 w-full bg-slate-900 border border-slate-700 rounded-lg mt-1 max-h-60 overflow-auto">
+                    <ul className="absolute z-50 w-full bg-slate-900 border border-slate-700 rounded-lg mt-1 max-h-60 overflow-auto shadow-xl">
                       {userResults.map((user) => (
                         <li
                           key={user.id}
-                          className="px-4 py-2 hover:bg-slate-700 cursor-pointer"
+                          className="px-4 py-2 hover:bg-slate-700 cursor-pointer transition-colors"
                           onClick={() => {
                             setFormData((prev) => ({
                               ...prev,
@@ -198,13 +291,19 @@ const NewSessionModal = ({
                               username: user.username,
                             }));
                             setUserResults([]);
+                            if (formErrors.userId) {
+                              setFormErrors((prev) => ({
+                                ...prev,
+                                userId: "",
+                              }));
+                            }
                           }}
                         >
                           <div className="text-white font-medium">
                             {user.username}
                           </div>
                           <div className="text-slate-400 text-sm">
-                            {user.first_name} {user.last_name} – {user.email}
+                            {user.first_name} {user.last_name} — {user.email}
                           </div>
                         </li>
                       ))}
@@ -215,6 +314,87 @@ const NewSessionModal = ({
                 {formErrors.userId && (
                   <p className="mt-1.5 text-sm text-red-400 flex items-center gap-1">
                     <span className="text-xs">⚠</span> {formErrors.userId}
+                  </p>
+                )}
+              </div>
+
+              {/* Service Type Selection */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  <div className="flex items-center gap-2">
+                    <Monitor className="w-4 h-4" />
+                    Select Service Type <span className="text-red-400">*</span>
+                  </div>
+                </label>
+                <select
+                  name="serviceTypeId"
+                  value={formData.serviceTypeId}
+                  onChange={handleFormChange}
+                  disabled={dropdownError || serviceTypes.length === 0}
+                  className={`w-full px-4 py-2.5 bg-slate-800 border rounded-lg text-white focus:outline-none focus:ring-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                    formErrors.serviceTypeId
+                      ? "border-red-500 focus:ring-red-500"
+                      : "border-slate-700 focus:ring-[#1173d4]"
+                  }`}
+                >
+                  <option value="">
+                    {serviceTypes.length === 0
+                      ? "No service types available"
+                      : "Choose a service type..."}
+                  </option>
+                  {serviceTypes.map((serviceType) => (
+                    <option key={serviceType.id} value={serviceType.id}>
+                      {serviceType.name}
+                    </option>
+                  ))}
+                </select>
+                {formErrors.serviceTypeId && (
+                  <p className="mt-1.5 text-sm text-red-400 flex items-center gap-1">
+                    <span className="text-xs">⚠</span>{" "}
+                    {formErrors.serviceTypeId}
+                  </p>
+                )}
+              </div>
+
+              {/* Game Type Selection */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  <div className="flex items-center gap-2">
+                    <Monitor className="w-4 h-4" />
+                    Select Game Type <span className="text-red-400">*</span>
+                  </div>
+                </label>
+                <select
+                  name="gameTypeId"
+                  value={formData.gameTypeId}
+                  onChange={handleFormChange}
+                  disabled={
+                    !formData.serviceTypeId ||
+                    dropdownError ||
+                    gameTypes.length === 0
+                  }
+                  className={`w-full px-4 py-2.5 bg-slate-800 border rounded-lg text-white focus:outline-none focus:ring-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                    formErrors.gameTypeId
+                      ? "border-red-500 focus:ring-red-500"
+                      : "border-slate-700 focus:ring-[#1173d4]"
+                  }`}
+                >
+                  <option value="">
+                    {!formData.serviceTypeId
+                      ? "Select service type first"
+                      : gameTypes.length === 0
+                        ? "No game types available"
+                        : "Choose a game type..."}
+                  </option>
+                  {gameTypes.map((gameType) => (
+                    <option key={gameType.id} value={gameType.id}>
+                      {gameType.name}
+                    </option>
+                  ))}
+                </select>
+                {formErrors.gameTypeId && (
+                  <p className="mt-1.5 text-sm text-red-400 flex items-center gap-1">
+                    <span className="text-xs">⚠</span> {formErrors.gameTypeId}
                   </p>
                 )}
               </div>
@@ -231,7 +411,11 @@ const NewSessionModal = ({
                   name="stationId"
                   value={formData.stationId}
                   onChange={handleFormChange}
-                  disabled={dropdownError || stations.length === 0}
+                  disabled={
+                    !formData.gameTypeId ||
+                    dropdownError ||
+                    filteredStations.length === 0
+                  }
                   className={`w-full px-4 py-2.5 bg-slate-800 border rounded-lg text-white focus:outline-none focus:ring-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                     formErrors.stationId
                       ? "border-red-500 focus:ring-red-500"
@@ -239,13 +423,15 @@ const NewSessionModal = ({
                   }`}
                 >
                   <option value="">
-                    {stations.length === 0
-                      ? "No stations available"
-                      : "Choose a station..."}
+                    {!formData.gameTypeId
+                      ? "Select game type first"
+                      : filteredStations.length === 0
+                        ? "No stations available"
+                        : "Choose a station..."}
                   </option>
-                  {stations.map((station) => (
+                  {filteredStations.map((station) => (
                     <option key={station.id} value={station.id}>
-                      {station.name} : {station.gaming_service_type}
+                      {station.name}
                     </option>
                   ))}
                 </select>
@@ -293,6 +479,44 @@ const NewSessionModal = ({
                 )}
               </div>
 
+              {/* Number of Players Selection */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-4 h-4" />
+                    Number of Players <span className="text-red-400">*</span>
+                  </div>
+                </label>
+                <select
+                  name="numberOfPlayers"
+                  value={formData.numberOfPlayers}
+                  onChange={handleFormChange}
+                  disabled={dropdownError || numberOfPlayers.length === 0}
+                  className={`w-full px-4 py-2.5 bg-slate-800 border rounded-lg text-white focus:outline-none focus:ring-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                    formErrors.numberOfPlayers
+                      ? "border-red-500 focus:ring-red-500"
+                      : "border-slate-700 focus:ring-[#1173d4]"
+                  }`}
+                >
+                  <option value="">
+                    {numberOfPlayers.length === 0
+                      ? "No options available"
+                      : "Choose number of players..."}
+                  </option>
+                  {numberOfPlayers.map((num) => (
+                    <option key={num} value={num}>
+                      {num} {num === 1 ? "Player" : "Players"}
+                    </option>
+                  ))}
+                </select>
+                {formErrors.numberOfPlayers && (
+                  <p className="mt-1.5 text-sm text-red-400 flex items-center gap-1">
+                    <span className="text-xs">⚠</span>{" "}
+                    {formErrors.numberOfPlayers}
+                  </p>
+                )}
+              </div>
+
               {/* Notes */}
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
@@ -319,7 +543,8 @@ const NewSessionModal = ({
             <div className="flex items-center justify-end gap-3 mt-8 pt-6 border-t border-slate-800">
               <button
                 onClick={onClose}
-                className="px-5 py-2.5 text-sm font-medium text-slate-300 bg-slate-800 rounded-lg hover:bg-slate-700 transition-colors"
+                disabled={isLoading}
+                className="px-5 py-2.5 text-sm font-medium text-slate-300 bg-slate-800 rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel
               </button>
