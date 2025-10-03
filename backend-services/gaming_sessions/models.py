@@ -1,6 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
-# from gaming_services.models import GamingService, Station
+from stations.models import Station
 from durations.models import Duration
 from simple_history.models import HistoricalRecords
 
@@ -16,16 +16,18 @@ class GamingSession(models.Model):
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='gaming_sessions_created')
     updated_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='gaming_sessions_updated')
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='gaming_sessions')
+    duration = models.ForeignKey(Duration, on_delete=models.SET_NULL, null=True, related_name='gaming_sessions_duration')
+    station = models.ForeignKey(Station, on_delete=models.SET_NULL, null=True, related_name='gaming_sessions_station')
+
 
     check_in_time = models.DateTimeField()
     check_out_time = models.DateTimeField(null=True, blank=True)
     player_count = models.PositiveIntegerField(default=1)
-    duration = models.ForeignKey(Duration, on_delete=models.SET_NULL, null=True, related_name='gaming_sessions_duration')
     calculated_gaming_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     total_session_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     session_status = models.CharField(max_length=20, choices=SESSION_STATUS_CHOICES, default='ACTIVE')
     is_walk_in_customer = models.BooleanField(default=False)
-    notes = models.TextField(blank=True)
+    notes = models.TextField(blank=True, default='')
 
     # Audit fields
     archive = models.BooleanField(default=False)

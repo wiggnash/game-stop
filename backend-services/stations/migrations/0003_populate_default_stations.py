@@ -24,7 +24,7 @@ def populate_stations(apps, schema_editor):
         # Get the game type
         game_type = GameType.objects.get(name=station_data['game_type_name'])
 
-        Station.objects.get_or_create(
+        station, created = Station.objects.get_or_create(
             name=station_data['name'],
             defaults={
                 'description': station_data['description'],
@@ -35,6 +35,13 @@ def populate_stations(apps, schema_editor):
                 'updated_by': None,
             }
         )
+
+        if not created:
+            station.is_active = True
+            station.description = station_data['description']
+            station.game_type = game_type
+            station.archive = False
+            station.save()
 
 class Migration(migrations.Migration):
 

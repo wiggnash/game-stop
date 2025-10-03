@@ -8,11 +8,13 @@ from datetime import timedelta
 from .models import GamingSession
 from durations.models import Duration
 from stations.models import Station
+from django.contrib.auth.models import User
+
 
 # Utils Import
 from .utils import (
-    calculate_checkout_time,
     calculate_gaming_cost,
+    calculate_times
 )
 
 # Serializer Import
@@ -21,7 +23,8 @@ from .serializers import (
     GamingSessionActiveDashboardSerializer,
     GamingSessionDetailSerializer,
     DurationDropdownSerializer,
-    ActiveStatationDropDownSerializer
+    ActiveStatationDropDownSerializer,
+    GamingSessionCreateSerializer
 )
 
 class GamingSessionListCreateView(generics.ListCreateAPIView):
@@ -29,37 +32,65 @@ class GamingSessionListCreateView(generics.ListCreateAPIView):
     serializer_class = GamingSessionSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return GamingSessionCreateSerializer
+        return GamingSessionSerializer
+
     def get_queryset(self):
         return GamingSession.objects.filter(archive=False)
 
     def perform_create(self, serializer):
-        # Get the necessary data
-        check_in_time = serializer.validated_data.get('check_in_time')
-        duration = serializer.validated_data.get('duration')
-        station = serializer.validated_data.get('station')
+        # Get the IDs from validated data
+        user_id = serializer.validated_data.get('user_id')
+        service_type_id = serializer.validated_data.get('service_type_id')
+        game_type_id = serializer.validated_data.get('game_type_id')
+        station_id = serializer.validated_data.get('station_id')
+        duration_id = serializer.validated_data.get('duration_id')
+        notes = serializer.validated_data.get('notes', '') or ''
+        number_of_players = serializer.validated_data.get('number_of_players')
 
-        # Calculate checkout time based on duration
-        check_out_time = calculate_checkout_time(check_in_time, duration)
+        # Fetch the actual model instances
+        user = User.objects.get(id=user_id)
+        station = Station.objects.get(id=station_id)
+        duration = Duration.objects.get(id=duration_id)
 
-        # Calculate gaming cost based on station's service hourly rate and duration
-        calculated_gaming_cost = calculate_gaming_cost(station, duration)
+        # Calculate check in and checkout time based on the duration
+        check_in_time, check_out_time = calculate_times(duration_id)
+
+        # Calculate gaming cost
+        calculated_gaming_cost = calculate_gaming_cost(
+            service_type_id,
+            game_type_id,
+            duration_id,
+            number_of_players
+        )
 
         # Total session cost (for now same as gaming cost, can add extras later)
         total_session_cost = calculated_gaming_cost
 
-        # Save the gaming session with calculated values
-        gaming_session = serializer.save(
+        # Create the gaming session manually
+        gaming_session = GamingSession.objects.create(
             created_by=self.request.user,
             updated_by=self.request.user,
+            user=user,
+            duration=duration,
+            station=station,
+            check_in_time=check_in_time,
             check_out_time=check_out_time,
+            player_count=number_of_players,
             calculated_gaming_cost=calculated_gaming_cost,
-            total_session_cost=total_session_cost
+            total_session_cost=total_session_cost,
+            session_status="ACTIVE",
+            notes=notes,
         )
 
         # Mark the station as occupied
         if gaming_session and gaming_session.station:
-            gaming_session.station.is_occupied = True
+            gaming_session.station.is_active = False
             gaming_session.station.save()
+
+        return gaming_session
 
     def list(self, request):
         queryset = self.get_queryset()
@@ -87,7 +118,7 @@ class GamingSessionRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIVi
             station = serializer.validated_data.get('station', instance.station)
 
             # Recalculate checkout time
-            check_out_time = calculate_checkout_time(check_in_time, duration)
+            check_in_time, check_out_time = calculate_times(duration)
 
             # Recalculate gaming cost
             calculated_gaming_cost = calculate_gaming_cost(station, duration)

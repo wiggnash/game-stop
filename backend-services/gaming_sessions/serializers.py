@@ -1,10 +1,13 @@
 from rest_framework import serializers
 from .models import GamingSession
+from django.contrib.auth.models import User
+
 from stations.models import Station
 from payments.models import Payment
 from session_snacks.models import SessionSnack
 from durations.models import Duration
 from game_types.models import GameType
+from service_types.models import ServiceType
 
 class GamingSessionSerializer(serializers.ModelSerializer):
     class Meta:
@@ -18,6 +21,81 @@ class GamingSessionSerializer(serializers.ModelSerializer):
             'id', 'check_out_time', 'calculated_gaming_cost',
             'total_session_cost', 'created_at', 'updated_at'
         ]
+
+class GamingSessionCreateSerializer(serializers.Serializer):
+    user_id = serializers.IntegerField(write_only=True)
+    service_type_id = serializers.IntegerField(write_only=True)
+    game_type_id = serializers.IntegerField(write_only=True)
+    station_id = serializers.IntegerField(write_only=True)
+    duration_id = serializers.IntegerField(write_only=True)
+    number_of_players = serializers.IntegerField(write_only=True)
+
+    class Meta:
+        model = GamingSession
+        fields = [
+            'user_id',
+            'service_type_id',
+            'game_type_id',
+            'station_id',
+            'duration_id',
+            'number_of_players',
+            'notes',
+        ]
+
+        extra_kwargs = {
+            'notes': {'required': False, 'allow_blank': True, 'default': ""},
+            'number_of_players': {'required': False, 'default': 1},
+        }
+
+    def validate_user_id(self, value):
+        """Validate that the user exists"""
+        try:
+            User.objects.get(id=value)
+        except User.DoesNotExist:
+            raise serializers.ValidationError(f"User with id {value} does not exist.")
+        return value
+
+    def validate_service_type_id(self, value):
+        """Validate that the service type exists"""
+        try:
+            ServiceType.objects.get(id=value)
+        except ServiceType.DoesNotExist:
+            raise serializers.ValidationError(f"Service type with id {value} does not exist.")
+        return value
+
+    def validate_game_type_id(self, value):
+        """Validate that the game type exists"""
+        try:
+            GameType.objects.get(id=value)
+        except GameType.DoesNotExist:
+            raise serializers.ValidationError(f"Game type with id {value} does not exist.")
+        return value
+
+    def validate_station_id(self, value):
+        """Validate that the station exists and is not occupied"""
+        try:
+            station = Station.objects.get(id=value)
+            if not station.is_active:
+                raise serializers.ValidationError(
+                    f"Station {station.name} is already occupied."
+                )
+        except Station.DoesNotExist:
+            raise serializers.ValidationError(f"Station with id {value} does not exist.")
+        return value
+
+    def validate_duration_id(self, value):
+        """Validate that the duration exists"""
+        try:
+            Duration.objects.get(id=value)
+        except Duration.DoesNotExist:
+            raise serializers.ValidationError(f"Duration with id {value} does not exist.")
+        return value
+
+    def validate_number_of_players(self, value):
+        """Validate that number of players is positive"""
+        if value <= 0:
+            raise serializers.ValidationError("Number of players must be at least 1.")
+        return value
 
 class DurationDropdownSerializer(serializers.ModelSerializer):
     type = serializers.CharField(source='get_type_display', read_only=True)
