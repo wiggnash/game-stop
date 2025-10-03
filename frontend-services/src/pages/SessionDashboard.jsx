@@ -53,6 +53,7 @@ const SessionDashboard = () => {
   const [dropdownData, setDropdownData] = useState({
     stations: [],
     durations: [],
+    numberOfPlayers: [],
   });
 
   const [dropdownError, setDropdownError] = useState(null);
@@ -464,6 +465,7 @@ const SessionDashboard = () => {
         setDropdownData({
           stations: data.active_stations || [],
           durations: data.durations || [],
+          numberOfPlayers: data.number_of_players || [],
         });
       } catch (err) {
         console.error("Error fetching dropdown options:", err);
@@ -669,6 +671,7 @@ const SessionDashboard = () => {
               isLoading={sessionLoading}
               stations={dropdownData.stations}
               durations={dropdownData.durations}
+              numberOfPlayers={dropdownData.numberOfPlayers}
               dropdownError={dropdownError}
             />
           </div>
