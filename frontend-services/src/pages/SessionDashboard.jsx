@@ -488,18 +488,26 @@ const SessionDashboard = () => {
     setShowNewSessionModal(false);
   };
 
-  // Add submit handler for new session (for now just console.log)
-  const handleNewSessionSubmit = (payload) => {
-    setSessionLoading(true);
+  // Create new session from the session dashboard
+  const handleNewSessionSubmit = async (payload) => {
     console.log("New session data:", payload);
+    try {
+      setSessionLoading(true);
+      await sessionsApi.createNewSession(payload);
 
-    // Simulate API call - Replace this with actual API call later
-    setTimeout(() => {
-      setSessionLoading(false);
+      setError(null);
       handleCloseNewSessionModal();
-      // TODO: Call your create session API here
-      // TODO: Refresh sessions list after successful creation
-    }, 1000);
+    } catch (err) {
+      const errorMessage =
+        err.response?.data?.message ||
+        err.message ||
+        "Failed to create new session sessions";
+      setError(errorMessage);
+      console.error("Error creating new sessions:", err);
+    } finally {
+      fetchActiveSessions();
+      setSessionLoading(false);
+    }
   };
 
   if (loading) {
