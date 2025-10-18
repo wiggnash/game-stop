@@ -107,7 +107,7 @@ class DurationDropdownSerializer(serializers.ModelSerializer):
 class GamingSessionActiveDashboardSerializer(serializers.ModelSerializer):
     user__username = serializers.CharField(source="user.username", read_only=True)
     station__name = serializers.CharField(source="station.name", read_only=True)
-    gaming_service__service_type = serializers.CharField(source="station.gaming_service.service_type", read_only=True)
+    gaming_service__service_type = serializers.CharField(source="station.game_type.name", read_only=True)
 
     class Meta:
         model = GamingSession
@@ -142,7 +142,7 @@ class GamingSessionDetailSerializer(serializers.ModelSerializer):
     customer_username = serializers.CharField(source='user.username', read_only=True)
     customer_full_name = serializers.SerializerMethodField()
     station_name = serializers.CharField(source='station.name', read_only=True)
-    game_service = serializers.CharField(source='station.gaming_service.service_type', read_only=True)
+    game_type = serializers.CharField(source='station.game_type.name', read_only=True)
 
     # Services & Snacks - using nested serializers
     gaming_service_item = serializers.SerializerMethodField()
@@ -161,7 +161,7 @@ class GamingSessionDetailSerializer(serializers.ModelSerializer):
             'check_in_time',
             'station',
             'station_name',
-            'game_service',
+            'game_type',
             'session_status',
 
             # Services & Snacks
@@ -187,7 +187,7 @@ class GamingSessionDetailSerializer(serializers.ModelSerializer):
     def get_gaming_service_item(self, obj):
         """Format gaming service as an item with quantity, price, total"""
         return {
-            'item_name': f"Gaming Session ({obj.station.gaming_service.service_type})",
+            'item_name': f"Gaming Session ({obj.station.game_type.name})",
             'quantity': 1,
             'unit_price': str(obj.calculated_gaming_cost),
             'total_cost': str(obj.calculated_gaming_cost)

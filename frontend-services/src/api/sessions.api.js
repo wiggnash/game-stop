@@ -34,9 +34,10 @@ export const resumeSession = async (sessionId) => {
   return response.data;
 };
 
-export const endSession = async (sessionId) => {
-  const response = await apiClient.put(
-    `/api/gaming-sessions/${sessionId}/end/`,
+export const endSession = async (sessionId, payload) => {
+  const response = await apiClient.patch(
+    `/api/gaming-sessions/${sessionId}/`,
+    payload,
   );
   return response.data;
 };
