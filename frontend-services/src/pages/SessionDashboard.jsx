@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import SessionCard from "../components/sessionDashboard/SessionCard";
 import NewSessionModal from "../components/sessionDashboard/NewSessionModal";
+import EndTime from "../components/sessionDashboard/EndTime";
 import * as sessionsApi from "../api/sessions.api";
 
 // Register all AG Grid community modules
@@ -57,6 +58,9 @@ const SessionDashboard = () => {
   });
 
   const [dropdownError, setDropdownError] = useState(null);
+  const [showEndModal, setShowEndModal] = useState(false);
+  const [endingSession, setEndingSession] = useState(null);
+  const [endLoading, setEndLoading] = useState(false);
 
   // Utility functions for session data
   const calculateRemainingTime = (checkInTime, checkOutTime) => {
@@ -381,19 +385,35 @@ const SessionDashboard = () => {
   const handleEnd = async (session) => {
     console.log("Ending session:", session.id);
 
-    // Optimistic update - remove session immediately
-    setSessions((prevSessions) =>
-      prevSessions.filter((s) => s.id !== session.id),
-    );
+    // Close the modal and show loading
+    setEndLoading(true);
 
     try {
-      await sessionsApi.endSession(session.id);
+      // Prepare the payload for ending the session
+      const payload = {
+        session_status: "COMPLETED",
+      };
+
+      await sessionsApi.endSession(session.id, payload);
+
+      // Remove session from the list immediately
+      setSessions((prevSessions) =>
+        prevSessions.filter((s) => s.id !== session.id),
+      );
+
       // Refresh past sessions to show the newly completed session
       fetchPastSessions();
+
+      // Close modal and reset state
+      setShowEndModal(false);
+      setEndingSession(null);
     } catch (error) {
+      // Revert by fetching all sessions again
       fetchActiveSessions();
       console.error("Error ending session:", error);
       // TODO: Show user-friendly error notification
+    } finally {
+      setEndLoading(false);
     }
   };
 
@@ -510,6 +530,24 @@ const SessionDashboard = () => {
     }
   };
 
+  const handleEndClick = (session) => {
+    setEndingSession(session);
+    setShowEndModal(true);
+  };
+
+  const handleCloseEndModal = () => {
+    if (!endLoading) {
+      setShowEndModal(false);
+      setEndingSession(null);
+    }
+  };
+
+  const handleConfirmEnd = async () => {
+    if (endingSession) {
+      await handleEnd(endingSession);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex h-screen flex-col bg-slate-900">
@@ -598,7 +636,7 @@ const SessionDashboard = () => {
                     session={session}
                     onPause={handlePause}
                     onResume={handleResume}
-                    onEnd={handleEnd}
+                    onEnd={handleEndClick}
                     onAddTime={handleAddTime}
                     onAddItem={handleAddItem}
                   />
@@ -681,6 +719,13 @@ const SessionDashboard = () => {
               durations={dropdownData.durations}
               numberOfPlayers={dropdownData.numberOfPlayers}
               dropdownError={dropdownError}
+            />
+            <EndTime
+              isOpen={showEndModal}
+              onClose={handleCloseEndModal}
+              onConfirm={handleConfirmEnd}
+              sessionData={endingSession}
+              isLoading={endLoading}
             />
           </div>
         </div>
